@@ -1,0 +1,209 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  PROFESSIONAL
+  ADMIN
+  MODERATOR
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRM
+  BOOKING_REMINDER
+  BOOKING_CANCEL
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  DISPUTE_UPDATE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  BKASH
+  ROCKET
+  NAGAD
+}
+
+enum OTPType {
+  REGISTRATION
+  PASSWORD_RESET
+}
+
+model User {
+  id                   Int                  @id @default(autoincrement())
+  name                 String?
+  email                String               @unique
+  password         String
+  role                 Role                 @default(USER)
+  isVerified           Boolean              @default(false)
+  verificationToken    String?
+  verificationExpires  DateTime?
+  resetToken           String?
+  resetExpires         DateTime?
+  avatar               String?              // Cloudinary URL
+  bio                  String?
+  phone                String?
+  location             String?
+  timezone             String?              // e.g., 'Asia/Dhaka'
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  professionalProfile  ProfessionalProfile?
+  bookedBookings       Booking[]            @relation("UserBookings")
+  professionalBookings Booking[]            @relation("ProfessionalBookings")
+  notifications        Notification[]
+  disputes             Dispute[]
+  resolvedDisputes     Dispute[]            @relation("ResolvedBy")
+  approvedMeetings     Meeting[]            @relation("ApprovedBy")
+}
+
+model ProfessionalProfile {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  specialties    String[]
+  certifications String[]  // Cloudinary URLs
+  rates          Decimal
+  availability   Json?     // Flexible slots/calendar data, e.g., { "slots": [...] }
+  experience     Int?
+  languages      String[]
+  isVerified     Boolean   @default(false)  // Admin-verified credentials
+
+  user           User      @relation(fields: [userId], references: [id])
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  email     String   @unique 
+  code      String
+  type      OTPType
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  tempName      String?
+  tempPassword  String? 
+  tempPhone     String?
+
+  @@index([email, type])
+}
+
+model Booking {
+  id                 Int            @id @default(autoincrement())
+  userId             Int
+  professionalId     Int
+  startTime          DateTime
+  endTime            DateTime
+  status             BookingStatus  @default(PENDING)
+  meetingLink        String?        // Stream.io link
+  recordingUrl       String?        // Cloudinary URL (if approved)
+  transcript         String?        // Meeting transcript (if approved)
+  notes              String?
+  price              Decimal?
+  cancellationReason String?
+  cancelledBy        Int?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  user               User           @relation("UserBookings", fields: [userId], references: [id])
+  professional       User           @relation("ProfessionalBookings", fields: [professionalId], references: [id])
+  meeting            Meeting?
+  review             Review?
+  payment            Payment?
+  dispute            Dispute?
+}
+
+model Meeting {
+  id                   Int      @id @default(autoincrement())
+  bookingId            Int      @unique
+  participants         Int[]    // Array of participant user IDs (for multi-participant/SFUs)
+  duration             Int?     // In minutes (calculated from start/end)
+  recorded             Boolean  @default(false)
+  approvedForStorage   Boolean  @default(false)  // Admin approval for recording/transcript storage
+  approvedBy           Int?
+
+  booking              Booking  @relation(fields: [bookingId], references: [id])
+  approvedByUser       User?    @relation("ApprovedBy", fields: [approvedBy], references: [id])
+}
+
+model Notification {
+  id       Int                @id @default(autoincrement())
+  userId   Int
+  type     NotificationType
+  message  String
+  sentAt   DateTime           @default(now())
+  isRead   Boolean            @default(false)
+
+  user     User               @relation(fields: [userId], references: [id])
+}
+
+model Review {
+  id         Int      @id @default(autoincrement())
+  bookingId  Int      @unique
+  rating     Int      // 1-5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  booking    Booking  @relation(fields: [bookingId], references: [id])
+}
+
+model Payment {
+  id               Int            @id @default(autoincrement())
+  bookingId        Int            @unique
+  amount           Decimal
+  status           PaymentStatus  @default(PENDING)
+  paymentMethod    PaymentMethod
+  trxId            String?        // Transaction ID from gateway (TrxID for bKash/Rocket/Nagad)
+  payerMobile      String?        // Payer's mobile/wallet number
+  merchantInvoice  String?        // Merchant-generated invoice/reference
+  paidAt           DateTime?
+  refundAmount     Decimal        @default(0)
+  refundTrxId      String?
+  invoiceUrl       String?        // Cloudinary URL for generated PDF invoice
+
+  createdAt        DateTime       @default(now())
+
+  booking          Booking        @relation(fields: [bookingId], references: [id])
+  logs             PaymentLog[]
+}
+
+model PaymentLog {
+  id         Int      @id @default(autoincrement())
+  paymentId  Int
+  action     String   // e.g., 'CREATE', 'EXECUTE', 'QUERY', 'REFUND'
+  request    Json?    // API request payload
+  response   Json?    // API response
+  createdAt  DateTime @default(now())
+
+  payment    Payment  @relation(fields: [paymentId], references: [id])
+}
+
+model Dispute {
+  id           Int      @id @default(autoincrement())
+  bookingId    Int      @unique
+  userId       Int      // Complainant (usually the user)
+  description  String
+  status       String   @default("OPEN")  // OPEN, RESOLVED, CLOSED
+  resolvedBy   Int?     // Moderator/Admin ID
+  resolvedAt   DateTime?
+
+  booking      Booking  @relation(fields: [bookingId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+  resolvedByUser User?  @relation("ResolvedBy", fields: [resolvedBy], references: [id])
+}
