@@ -1,7 +1,6 @@
 import prisma from "../../config/client.js";
 import { ApiError } from "../../utils/apiError.js";
 import { deleteFromCloudinary, getPublicIdFromUrl } from "../../utils/cloudinary.utils.js";
-
 export class UserService {
   static async getProfile(userId: string) {
     const user = await prisma.user.findUnique({

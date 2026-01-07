@@ -3,9 +3,9 @@ import { authenticate, authorize } from "../../middleware/auth.middleware.js";
 import { validate } from "../../middleware/validation.middleware.js";
 import { UserController } from "./user.controller.js";
 import {
-    getUserParamsSchema,
-    searchUsersQuerySchema,
-    updateProfileSchema,
+  getUserParamsSchema,
+  searchUsersQuerySchema,
+  updateProfileSchema,
 } from "./user.validation.js";
 
 const router = Router();
