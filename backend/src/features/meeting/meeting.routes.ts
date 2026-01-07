@@ -9,6 +9,8 @@ router.post("/", authenticate, authorize("PROFESSIONAL"), MeetingController.crea
 
 // Create ad-hoc meeting (ADMIN/MODERATOR only)
 router.post("/adhoc", authenticate, authorize("ADMIN", "MODERATOR"), MeetingController.createAdHocMeeting);
+// Add this route
+router.get("/adhoc/:callId/token", authenticate, MeetingController.getAdHocJoinToken);
 
 // Get join token for participant
 router.get("/:bookingId/token", authenticate, MeetingController.getJoinToken);
