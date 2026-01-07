@@ -6,12 +6,23 @@ export class MeetingController {
   static async createMeeting(req: Request, res: Response, next: NextFunction) {
     try {
       const { bookingId } = req.body;
-      const result = await MeetingService.createMeeting(bookingId);
+      const result = await MeetingService.createMeetingFromBooking(bookingId);
       res.status(201).json(ApiResponse.created(result, "Meeting room created"));
     } catch (error) {
       next(error);
     }
   }
+
+  static async createAdHocMeeting(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const { title } = req.body;
+      const result = await MeetingService.createAdHocMeeting(userId, title);
+    res.status(201).json(ApiResponse.created(result, "Ad-hoc meeting created"));
+  } catch (error) {
+    next(error);
+  }
+}
 
   static async getJoinToken(req: Request, res: Response, next: NextFunction) {
     try {

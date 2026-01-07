@@ -5,7 +5,10 @@ import { MeetingController } from "./meeting.controller.js";
 const router = Router();
 
 // Create meeting room (after booking confirmed)
-router.post("/", authenticate, MeetingController.createMeeting);
+router.post("/", authenticate, authorize("PROFESSIONAL"), MeetingController.createMeeting);
+
+// Create ad-hoc meeting (ADMIN/MODERATOR only)
+router.post("/adhoc", authenticate, authorize("ADMIN", "MODERATOR"), MeetingController.createAdHocMeeting);
 
 // Get join token for participant
 router.get("/:bookingId/token", authenticate, MeetingController.getJoinToken);

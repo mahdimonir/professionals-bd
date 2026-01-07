@@ -3,12 +3,13 @@ import { streamClient } from "../../config/stream.js";
 import { ApiError } from "../../utils/apiError.js";
 
 export class MeetingService {
-  static async createMeeting(bookingId: string) {
+  // 1. Create meeting from confirmed booking
+  static async createMeetingFromBooking(bookingId: string) {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
-        user: { select: { id: true } },
-        professional: { select: { id: true } },
+        user: { select: { id: true, name: true } },
+        professional: { select: { id: true, name: true } },
       },
     });
 
@@ -18,7 +19,7 @@ export class MeetingService {
     }
 
     const callType = "default";
-    const callId = bookingId; // Use booking ID as call ID
+    const callId = `booking-${bookingId}`; // Prefix to distinguish from ad-hoc
 
     const call = streamClient.video.call(callType, callId);
 
@@ -29,39 +30,69 @@ export class MeetingService {
           { user_id: booking.user.id },
           { user_id: booking.professional.id },
         ],
+        custom: { type: "booking", bookingId },
       },
     });
 
-    // Create or update meeting record
     const meeting = await prisma.meeting.upsert({
       where: { bookingId },
-      update: {},
-      create: { bookingId, streamCallId: bookingId },
+      update: { streamCallId: callId },
+      create: {
+        bookingId,
+        streamCallId: callId,
+      },
     });
 
     return { meeting, callId, callType };
   }
 
-  static async generateJoinToken(userId: string, bookingId: string) {
-    const booking = await prisma.booking.findUnique({
-      where: { id: bookingId },
+  // 2. Create ad-hoc meeting (ADMIN/MODERATOR only)
+  static async createAdHocMeeting(creatorId: string, title?: string) {
+    const callType = "default";
+    const callId = `adhoc-${creatorId}-${Date.now()}`; // Unique ID
+
+    const call = streamClient.video.call(callType, callId);
+
+    await call.getOrCreate({
+      data: {
+        created_by_id: creatorId,
+        custom: { type: "adhoc", title: title || "Instant Meeting" },
+      },
     });
 
-    if (!booking) throw ApiError.notFound("Booking not found");
+    return { callId, callType };
+  }
 
-    if (booking.userId !== userId && booking.professionalId !== userId) {
-      throw ApiError.forbidden("You are not a participant in this meeting");
+  // 3. Generate join token (works for both booking & ad-hoc)
+  static async generateJoinToken(userId: string, callId: string) {
+    // Extract type from callId
+    const isBookingCall = callId.startsWith("booking-");
+    const isAdHocCall = callId.startsWith("adhoc-");
+
+    if (!isBookingCall && !isAdHocCall) {
+      throw ApiError.badRequest("Invalid call ID");
     }
+
+    if (isBookingCall) {
+      const bookingId = callId.replace("booking-", "");
+      const booking = await prisma.booking.findUnique({
+        where: { id: bookingId },
+      });
+
+      if (!booking) throw ApiError.notFound("Booking not found");
+
+      if (booking.userId !== userId && booking.professionalId !== userId) {
+        throw ApiError.forbidden("You are not a participant");
+      }
+    }
+    // For ad-hoc: allow any authenticated user (or add member check later)
 
     const token = streamClient.createToken(userId);
 
-    return {
-      token,
-      callId: bookingId,
-      callType: "default",
-    };
+    return { token, callId, callType: "default" };
   }
 
+  // 4. Approve recording (only for booking-based meetings)
   static async approveRecording(meetingId: string, adminId: string, approved: boolean) {
     const meeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
@@ -79,19 +110,22 @@ export class MeetingService {
     });
   }
 
-  // Webhook handler for Stream recording events
+  // 5. Webhook handler
   static async handleRecordingWebhook(payload: any) {
     if (payload.type !== "call.recording_ready") return;
 
-    const callCid = payload.call_cid; // e.g., "default:booking_123"
+    const callCid = payload.call_cid;
     const callId = callCid.split(":").pop();
 
+    if (!callId.startsWith("booking-")) return; // Only save recording for booking calls
+
+    const bookingId = callId.replace("booking-", "");
     const recordingUrl = payload.recording?.url;
 
     if (!recordingUrl) return;
 
     await prisma.meeting.update({
-      where: { bookingId: callId },
+      where: { bookingId },
       data: {
         recorded: true,
         recordingUrl,
