@@ -1,5 +1,5 @@
-import { ApiResponse } from "@/utils/apiResponse.js";
 import { NextFunction, Request, Response } from "express";
+import { ApiResponse } from "../../utils/apiResponse.js";
 import { AuthService } from "./auth.service.js";
 
 export class AuthController {

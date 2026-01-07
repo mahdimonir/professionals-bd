@@ -1,6 +1,6 @@
-import { bookingConfirmation, bookingStatusUpdate, passwordResetOTP, registrationOTP } from "@/templates/emails";
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
+import { bookingConfirmation, bookingStatusUpdate, passwordResetOTP, registrationOTP } from "../templates/emails";
 import logger from "../utils/logger.js";
 
 class EmailService {
