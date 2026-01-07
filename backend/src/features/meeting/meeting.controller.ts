@@ -35,6 +35,17 @@ export class MeetingController {
     }
   }
 
+  static async getAdHocJoinToken(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.id;
+    const { callId } = req.params;
+    const tokenData = await MeetingService.generateAdHocJoinToken(userId, callId);
+    res.json(ApiResponse.success(tokenData));
+  } catch (error) {
+    next(error);
+  }
+}
+
   static async approveRecording(req: Request, res: Response, next: NextFunction) {
     try {
       const { meetingId } = req.params;

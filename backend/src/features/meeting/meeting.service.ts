@@ -92,6 +92,25 @@ export class MeetingService {
     return { token, callId, callType: "default" };
   }
 
+  // Add this method
+static async generateAdHocJoinToken(userId: string, callId: string) {
+  // Basic validation - call must exist in Stream
+  const call = streamClient.video.call("default", callId);
+  try {
+    await call.get(); // Check if call exists
+  } catch {
+    throw ApiError.notFound("Meeting not found");
+  }
+
+  const token = streamClient.createToken(userId);
+
+  return {
+    token,
+    callId,
+    callType: "default",
+  };
+}
+
   // 4. Approve recording (only for booking-based meetings)
   static async approveRecording(meetingId: string, adminId: string, approved: boolean) {
     const meeting = await prisma.meeting.findUnique({
