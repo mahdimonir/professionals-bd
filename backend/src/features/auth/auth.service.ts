@@ -1,237 +1,309 @@
+// src/features/auth/auth.service.ts
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../../config/database.js";
+import prisma from "../../config/client.js";
 import { env } from "../../config/env.js";
 import { emailService } from "../../services/email.service.js";
+import { ApiError } from "../../utils/apiError.js";
+import logger from "../../utils/logger.js";
 
-const OTP_EXPIRY_MINUTES = 15; // Give user enough time
-const MAX_ATTEMPTS = 5;
+const OTP_EXPIRY_MINUTES = 10;
+const MAX_OTP_ATTEMPTS = 5;
+const MAX_RESEND_PER_HOUR = 3;
 
-function generateOTP(): string {
+function generateOTP(length = 6): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export class AuthService {
-  // Step 1: Register → Save temp data in OTP table only
-  static async register(data: {
-    name: string;
-    email: string;
-    password: string;
-    phone?: string;
-  }) {
-    const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
-    });
-    if (existingUser) {
-      throw new Error("Email already registered and verified. Please login.");
-    }
+function generateAccessToken(userId: string): string {
+  return jwt.sign({ userId }, env.JWT_ACCESS_SECRET, { expiresIn: "1h" });
+}
 
-    // If there's a pending registration (in OTP table) → just resend new OTP
-    const hashedPassword = await bcrypt.hash(data.password, 12);
-    const otp = generateOTP();
+function generateRefreshToken(userId: string): string {
+  return jwt.sign({ userId }, env.JWT_REFRESH_SECRET, { expiresIn: "30d" });
+}
+
+export class AuthService {
+  private static async hashOTP(code: string): Promise<string> {
+    return await bcrypt.hash(code, 12);
+  }
+
+  private static async verifyOTPHash(storedHash: string, providedCode: string): Promise<boolean> {
+    return await bcrypt.compare(providedCode, storedHash);
+  }
+
+  private static async createOrUpdateOTP(data: {
+    email: string;
+    type: "REGISTRATION" | "PASSWORD_RESET";
+    code: string;
+    tempData?: { name?: string; passwordHash?: string; phone?: string };
+  }) {
+    const hashedCode = await this.hashOTP(data.code);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    await prisma.oTP.upsert({
-      where: { email: data.email },
+    return prisma.oTP.upsert({
+      where: { email_type: { email: data.email, type: data.type } },
       update: {
-        code: otp,
+        codeHash: hashedCode,
         expiresAt,
-        attempts: 0, // Reset attempts
-        tempName: data.name,
-        tempPassword: hashedPassword,
-        tempPhone: data.phone,
+        attempts: 0,
+        resendCount: { increment: 1 },
+        ...(data.tempData && {
+          tempName: data.tempData.name,
+          tempPasswordHash: data.tempData.passwordHash,
+          tempPhone: data.tempData.phone,
+        }),
       },
       create: {
         email: data.email,
-        code: otp,
+        type: data.type,
+        codeHash: hashedCode,
         expiresAt,
-        tempName: data.name,
-        tempPassword: hashedPassword,
-        tempPhone: data.phone,
-        type: "REGISTRATION",
+        resendCount: 1,
+        ...(data.tempData && {
+          tempName: data.tempData.name,
+          tempPasswordHash: data.tempData.passwordHash,
+          tempPhone: data.tempData.phone,
+        }),
       },
+    });
+  }
+
+  static async register(data: { name: string; email: string; password: string; phone?: string }) {
+    const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existingUser) {
+      throw new ApiError(400, "Email already registered");
+    }
+
+    const passwordHash = await bcrypt.hash(data.password, 12);
+    const otp = generateOTP();
+
+    await this.createOrUpdateOTP({
+      email: data.email,
+      type: "REGISTRATION",
+      code: otp,
+      tempData: { name: data.name, passwordHash, phone: data.phone },
     });
 
     await emailService.sendRegistrationOTP(data.email, data.name, otp);
 
-    return {
-      message:
-        "Verification code sent to your email. Please check your inbox (and spam folder).",
-    };
+    logger.info(`Registration OTP sent for email: ${data.email}`);
+    return { message: "Verification code sent to your email" };
   }
 
-  // Step 2: Verify OTP → NOW create real user
   static async verifyRegistration(email: string, otp: string) {
     const otpRecord = await prisma.oTP.findUnique({
-      where: { email },
+      where: { email_type: { email, type: "REGISTRATION" } },
     });
 
-    if (!otpRecord || otpRecord.type !== "REGISTRATION") {
-      throw new Error("Invalid verification request");
-    }
+    if (!otpRecord) throw new ApiError(400, "Invalid verification request");
 
-    if (otpRecord.code !== otp) {
-      await this.incrementAttempts(email);
-      throw new Error("Invalid verification code");
+    if (otpRecord.attempts >= MAX_OTP_ATTEMPTS) {
+      await prisma.oTP.delete({ where: { id: otpRecord.id } });
+      throw new ApiError(429, "Too many failed attempts. Please register again");
     }
 
     if (otpRecord.expiresAt < new Date()) {
-      await prisma.oTP.delete({ where: { email } });
-      throw new Error("Verification code expired");
+      await prisma.oTP.delete({ where: { id: otpRecord.id } });
+      throw new ApiError(400, "Verification code expired");
     }
 
-    if (otpRecord.attempts >= MAX_ATTEMPTS) {
-      await prisma.oTP.delete({ where: { email } });
-      throw new Error(
-        "Too many failed attempts. Please try registering again."
-      );
+    const isValid = await this.verifyOTPHash(otpRecord.codeHash, otp);
+    if (!isValid) {
+      await prisma.oTP.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new ApiError(400, "Invalid verification code");
     }
 
-    // Required temp data must exist
-    if (!otpRecord.tempName || !otpRecord.tempPassword) {
-      throw new Error("Registration data missing. Please register again.");
+    if (!otpRecord.tempName || !otpRecord.tempPasswordHash) {
+      throw new ApiError(500, "Registration data corrupted");
     }
 
-    // Create REAL verified user
     const user = await prisma.user.create({
       data: {
         name: otpRecord.tempName,
-        email: otpRecord.email,
-        password: otpRecord.tempPassword,
+        email,
+        passwordHash: otpRecord.tempPasswordHash,
         phone: otpRecord.tempPhone,
         isVerified: true,
         role: "USER",
       },
+      select: { id: true, name: true, email: true, role: true, avatar: true },
     });
 
-    // Clean up temp data
-    await prisma.oTP.delete({ where: { email } });
+    await prisma.oTP.delete({ where: { id: otpRecord.id } });
 
-    const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
 
-    return {
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: refreshTokenHash,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
-      message: "Account created and verified successfully!",
-    };
+    });
+
+    logger.info(`User registered and logged in: ${email}`);
+    return { accessToken, refreshToken, user };
   }
 
-  // Resend Registration OTP
   static async resendRegistrationOTP(email: string) {
-    // Check if there's a pending registration
     const otpRecord = await prisma.oTP.findUnique({
-      where: { email },
+      where: { email_type: { email, type: "REGISTRATION" } },
     });
 
-    if (!otpRecord || otpRecord.type !== "REGISTRATION") {
-      // Security: Don't reveal if email has no pending registration
-      return {
-        message: "If a registration is pending, a new code has been sent.",
-      };
+    if (!otpRecord) {
+      return { message: "If a registration is pending, a new code has been sent" };
     }
 
-    // Optional: Rate limit resends (e.g., max 3 per hour)
-    // You can add a resendCount field later if needed
+    // Rate limit resends
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    if (otpRecord.resendCount > MAX_RESEND_PER_HOUR && otpRecord.createdAt > oneHourAgo) {
+      throw new ApiError(429, "Too many resend requests");
+    }
 
     const newOTP = generateOTP();
-    const newExpiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-    await prisma.oTP.update({
-      where: { email },
-      data: {
-        code: newOTP,
-        expiresAt: newExpiresAt,
-        attempts: 0, // Reset attempts on resend
+    await this.createOrUpdateOTP({
+      email,
+      type: "REGISTRATION",
+      code: newOTP,
+      tempData: {
+        name: otpRecord.tempName!,
+        passwordHash: otpRecord.tempPasswordHash!,
+        phone: otpRecord.tempPhone ?? undefined,
       },
     });
 
-    // Resend email
-    await emailService.sendRegistrationOTP(
-      email,
-      otpRecord.tempName || "User",
-      newOTP
-    );
-
-    return { message: "New verification code sent to your email" };
+    await emailService.sendRegistrationOTP(email, otpRecord.tempName || "User", newOTP);
+    return { message: "New verification code sent" };
   }
 
-  // Login (only verified users)
   static async login(email: string, password: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      throw new Error("Invalid email or password");
-    }
-
-    // No need to check isVerified — we only create verified users now!
-    const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
-      expiresIn: "7d",
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, passwordHash: true, isVerified: true, name: true, role: true, avatar: true },
     });
 
-    return {
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new ApiError(401, "Invalid email or password");
+    }
+
+    if (!user.isVerified) {
+      throw new ApiError(403, "Please verify your email first");
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    const accessToken = generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
+
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: refreshTokenHash,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
+    });
+
+    logger.info(`User logged in: ${email}`);
+    return {
+      accessToken,
+      refreshToken,
+      user: { id: user.id, name: user.name, email, role: user.role, avatar: user.avatar },
     };
   }
 
-  // Password reset (unchanged — uses OTP table temporarily)
   static async sendPasswordResetOTP(email: string) {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error("If email exists, reset code sent");
+    if (!user || !user.passwordHash) {
+      // Don't reveal existence
+      return { message: "If account exists, reset code has been sent" };
+    }
 
     const otp = generateOTP();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await this.createOrUpdateOTP({ email, type: "PASSWORD_RESET", code: otp });
 
-    await prisma.oTP.upsert({
-      where: { email },
-      update: { code: otp, expiresAt, attempts: 0, type: "PASSWORD_RESET" },
-      create: { email, code: otp, expiresAt, type: "PASSWORD_RESET" },
-    });
-
-    await emailService.sendPasswordResetOTP(email, user.name, otp);
-    return { message: "Password reset code sent" };
+    await emailService.sendPasswordResetOTP(email, user.name || "User", otp);
+    return { message: "If account exists, reset code has been sent" };
   }
 
   static async resetPassword(email: string, otp: string, newPassword: string) {
-    const otpRecord = await prisma.oTP.findUnique({ where: { email } });
+    const otpRecord = await prisma.oTP.findUnique({
+      where: { email_type: { email, type: "PASSWORD_RESET" } },
+    });
 
-    if (
-      !otpRecord ||
-      otpRecord.type !== "PASSWORD_RESET" ||
-      otpRecord.code !== otp ||
-      otpRecord.expiresAt < new Date()
-    ) {
-      throw new Error("Invalid or expired code");
+    if (!otpRecord || otpRecord.expiresAt < new Date()) {
+      throw new ApiError(400, "Invalid or expired reset code");
     }
 
-    const hashed = await bcrypt.hash(newPassword, 12);
+    const isValid = await this.verifyOTPHash(otpRecord.codeHash, otp);
+    if (!isValid) {
+      throw new ApiError(400, "Invalid reset code");
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({
       where: { email },
-      data: { password: hashed },
+      data: { passwordHash },
     });
 
-    await prisma.oTP.delete({ where: { email } });
-    return { message: "Password reset successful" };
+    await prisma.oTP.delete({ where: { id: otpRecord.id } });
+    await prisma.refreshToken.deleteMany({ where: { user: { email } } }); // Invalidate all sessions
+
+    logger.info(`Password reset for: ${email}`);
+    return { message: "Password updated successfully" };
   }
 
-  private static async incrementAttempts(email: string) {
-    await prisma.oTP.update({
-      where: { email },
-      data: { attempts: { increment: 1 } },
+  static async refreshToken(refreshToken: string) {
+    if (!refreshToken) throw new ApiError(401, "Refresh token required");
+
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: { expiresAt: { gt: new Date() } },
+      include: { user: { select: { id: true, name: true, email: true, role: true, avatar: true } } },
     });
+
+    if (!tokenRecord) throw new ApiError(401, "Invalid or expired refresh token");
+
+    const isValid = await bcrypt.compare(refreshToken, tokenRecord.tokenHash);
+    if (!isValid) throw new ApiError(401, "Invalid refresh token");
+
+    const newAccessToken = generateAccessToken(tokenRecord.userId);
+    const newRefreshToken = generateRefreshToken(tokenRecord.userId);
+    const newRefreshHash = await bcrypt.hash(newRefreshToken, 12);
+
+    // Replace old token
+    await prisma.refreshToken.update({
+      where: { id: tokenRecord.id },
+      data: { tokenHash: newRefreshHash, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+    });
+
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      user: tokenRecord.user,
+    };
+  }
+
+  static async logout(refreshToken: string) {
+    if (!refreshToken) return;
+
+    const tokenRecord = await prisma.refreshToken.findFirst({
+      where: { expiresAt: { gt: new Date() } },
+    });
+
+    if (tokenRecord) {
+      const isValid = await bcrypt.compare(refreshToken, tokenRecord.tokenHash);
+      if (isValid) {
+        await prisma.refreshToken.delete({ where: { id: tokenRecord.id } });
+      }
+    }
   }
 }

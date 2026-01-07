@@ -3,142 +3,106 @@ import express from "express";
 import helmet from "helmet";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
-import authRoutes from "./features/auth/auth.routes.js";
-// import contactRoutes from "./features/contact/contact.routes.js";
-// import notificationRoutes from "./features/notifications/notifications.routes.js";
-// import paymentRoutes from "./features/payments/payments.routes.js";
-// import reviewRoutes from "./features/reviews/reviews.routes.js";
-// import userRoutes from "./features/users/users.routes.js";
+import { authRoutes } from "./features/auth/auth.routes.js";
+import { bookingRoutes } from "./features/booking/booking.routes.js";
+import { mediaRoutes } from "./features/media/media.routes.js";
+import { meetingRoutes } from "./features/meeting/meeting.routes.js";
+import { professionalRoutes } from "./features/professional/professional.routes.js";
+import { userRoutes } from "./features/user/user.routes.js";
+import { errorHandler } from "./middleware/errorHandler.middleware.js";
+import { notFoundHandler } from "./middleware/notFound.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 import swaggerDocument from "./swagger.json";
 import logger from "./utils/logger.js";
 
 const app = express();
 
-// Serve Swagger UI static files
-app.use(
-  "/swagger-ui",
-  express.static(path.join(process.cwd(), "node_modules/swagger-ui-dist"))
-);
+// Trust proxy (important for production behind reverse proxies like Nginx, Vercel, Render, etc.)
+app.set("trust proxy", 1);
 
-// Security Middleware
+// Security Headers
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
         scriptSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'none'"],
       },
     },
     crossOriginEmbedderPolicy: false,
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
 
-// CORS configuration
+// CORS – Restrictive in production
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:3000", // Dev only
+  "http://localhost:3001",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow non-browser requests (e.g., Postman, mobile apps)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        logger.warn(`CORS blocked origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
-// Body parsing with size limit
+// Body Parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Apply general rate limiting to all routes
+// Serve Swagger static assets (optional – you can use CDN instead)
+app.use("/api-docs/static", express.static(path.join(process.cwd(), "node_modules/swagger-ui-dist")));
+
+// General API rate limiting
 app.use("/api/v1", apiLimiter);
 
-// Routes
-app.use("/api/v1/auth", authRoutes);
-// app.use("/api/v1/users", userRoutes);
-// app.use("/api/v1/notifications", notificationRoutes);
-// app.use("/api/v1/reviews", reviewRoutes);
-// app.use("/api/v1/contact", contactRoutes);
-// app.use("/api/v1/payments", paymentRoutes);
-
-// Health Check
-app.get("/api/v1/health", (req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
-// 404 Handler
-app.use((req: express.Request, res: express.Response) => {
-  res.status(404).json({
-    success: false,
-    message: "Route not found",
+// Health Check – Public
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    env: process.env.NODE_ENV,
   });
 });
 
-// Global Error Handler
-app.use(
-  (
-    err: any,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction
-  ) => {
-    logger.error(err);
+// API Routes
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/professionals", professionalRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/meetings", meetingRoutes);
+app.use("/api/v1/media", mediaRoutes);
 
-    // Handle Prisma errors
-    if (err.code === "P2022" || err.code === "P2002" || err.code === "P2014") {
-      const prismaError = err.meta?.driverAdapterError?.cause || err.meta;
-      const columnName =
-        prismaError?.originalMessage?.match(/column "?(\w+)"?/i)?.[1] ||
-        prismaError?.target?.[0] ||
-        "database";
+// Swagger Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+}));
 
-      let message = "Database error occurred";
+// 404 Handler – Clean and consistent
+app.use(notFoundHandler);
 
-      if (err.code === "P2022") {
-        message = `Database column '${columnName}' does not exist. Please run database migrations.`;
-      } else if (err.code === "P2002") {
-        message = `A record with this ${columnName} already exists.`;
-      } else if (err.code === "P2014") {
-        message = "Invalid relation or constraint violation.";
-      }
-
-      return res.status(400).json({
-        success: false,
-        message,
-      });
-    }
-
-    // Handle Prisma validation errors
-    if (err.name === "PrismaClientValidationError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid data provided. Please check your input.",
-      });
-    }
-
-    // Don't leak error details in production
-    const isDevelopment = process.env.NODE_ENV === "development";
-
-    // Clean up error message - remove stack traces and file paths
-    let errorMessage = err.message || "Internal Server Error";
-    if (!isDevelopment) {
-      // Remove file paths and stack traces from message
-      errorMessage = errorMessage
-        .split("\n")[0]
-        .replace(/at\s+.*/g, "")
-        .replace(/E:.*?backend[\\/]/gi, "")
-        .trim();
-    }
-
-    res.status(err.status || 500).json({
-      success: false,
-      message: errorMessage,
-      ...(isDevelopment && { stack: err.stack }),
-    });
-  }
-);
+// Global Error Handler – Must be last
+app.use(errorHandler);
 
 export default app;

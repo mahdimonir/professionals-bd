@@ -1,5 +1,5 @@
 import app from "./app.js";
-import prisma from "./config/database.js";
+import prisma from "./config/client.js";
 import { env } from "./config/env.js";
 // import { startOTPCleanupJob } from "./jobs/cleanupExpiredOTPs.js";
 import logger from "./utils/logger.js";

@@ -1,20 +1,9 @@
 node_modules
-# Keep environment variables out of version control
 .env
 
 /src/generated/prisma
 uploads/
 dist/
 
-/src/features/users
-
-src/middleware
-src/services
-src/utils
-
-/src/features/contact
-/src/features/notifications
-/src/features/payments
-/src/features/reviews
 /src/jobs
 
