@@ -36,7 +36,7 @@ export class MeetingService {
     const meeting = await prisma.meeting.upsert({
       where: { bookingId },
       update: {},
-      create: { bookingId },
+      create: { bookingId, streamCallId: bookingId },
     });
 
     return { meeting, callId, callType };

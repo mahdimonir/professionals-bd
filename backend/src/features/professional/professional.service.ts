@@ -45,7 +45,7 @@ export class ProfessionalService {
       const oldUrls = existing.certifications;
       const newUrls = data.certifications || [];
 
-      const removedUrls = oldUrls.filter((url) => !newUrls.includes(url));
+      const removedUrls = oldUrls.filter((url: string) => !newUrls.includes(url));
 
       for (const url of removedUrls) {
         const publicId = getPublicIdFromUrl(url);
