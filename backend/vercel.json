@@ -1,20 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "src/server.ts",
-      "use": "@vercel/node"
-    }
-  ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/src/server.ts"
-    },
-    {
-      "src": "/webhooks/(.*)",
-      "dest": "/src/server.ts"
-    },
     {
       "src": "/(.*)",
       "dest": "/src/server.ts"
@@ -24,8 +10,5 @@
     "src/server.ts": {
       "maxDuration": 60
     }
-  },
-  "env": {
-    "NODE_ENV": "production"
   }
 }
