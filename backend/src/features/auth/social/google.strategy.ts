@@ -1,9 +1,9 @@
-import prisma from "@/config/client.js";
-import { env } from "@/config/env.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import prisma from "../../../config/client.js";
+import { env } from "../../../config/env.js";
 
 const generateAccessToken = (userId: string) =>
   jwt.sign({ userId }, env.JWT_ACCESS_SECRET, { expiresIn: "1h" });

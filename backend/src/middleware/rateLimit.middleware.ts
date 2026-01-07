@@ -1,4 +1,3 @@
-// src/middleware/rateLimit.middleware.ts
 import rateLimit from "express-rate-limit";
 import { ApiError } from "../utils/apiError.js";
 
