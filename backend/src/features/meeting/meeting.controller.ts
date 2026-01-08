@@ -1,3 +1,4 @@
+import { ApiError } from "@/utils/apiError.js";
 import { NextFunction, Request, Response } from "express";
 import { ApiResponse } from "../../utils/apiResponse.js";
 import { MeetingService } from "./meeting.service.js";
@@ -46,6 +47,19 @@ export class MeetingController {
   }
 }
 
+static async getGuestToken(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { callId } = req.params;
+    const { guestName } = req.body;
+
+    if (!guestName) throw ApiError.badRequest("guestName is required");
+
+    const tokenData = await MeetingService.generateGuestToken(callId, guestName);
+    res.json(ApiResponse.success(tokenData));
+  } catch (error) {
+    next(error);
+  }
+}
   static async approveRecording(req: Request, res: Response, next: NextFunction) {
     try {
       const { meetingId } = req.params;
