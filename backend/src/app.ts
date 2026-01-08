@@ -42,44 +42,48 @@ app.use(
 );
 
 // CORS – Restrictive in production
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:5173",
-].filter(Boolean);
+// const allowedOrigins = [
+//   process.env.FRONTEND_URL,
+//   "http://localhost:3000",
+//   "http://localhost:3001",
+//   "http://localhost:5173",
+// ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, curl)
-      if (!origin) return callback(null, true);
+// app.use(
+//   cors({
+//     origin: (origin, callback) => {
+//       // Allow requests with no origin (mobile apps, Postman, curl)
+//       if (!origin) return callback(null, true);
 
-      // Allow all Vercel preview deployments during development/testing
-      if (origin.includes(".vercel.app")) {
-        return callback(null, true);
-      }
+//       // Allow all Vercel preview deployments during development/testing
+//       if (origin.includes(".vercel.app")) {
+//         return callback(null, true);
+//       }
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+//       if (allowedOrigins.includes(origin)) {
+//         return callback(null, true);
+//       }
 
-      logger.warn(`CORS blocked origin: ${origin}`);
-      return callback(new ApiError(403, "Not allowed by CORS"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-    ],
-    exposedHeaders: ["Content-Length", "X-Request-Id"],
-    maxAge: 600,
-  })
-);
+//       logger.warn(`CORS blocked origin: ${origin}`);
+//       return callback(new ApiError(403, "Not allowed by CORS"));
+//     },
+//     credentials: true,
+//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+//     allowedHeaders: [
+//       "Content-Type",
+//       "Authorization",
+//       "X-Requested-With",
+//       "Accept",
+//       "Origin",
+//     ],
+//     exposedHeaders: ["Content-Length", "X-Request-Id"],
+//     maxAge: 600,
+//   })
+// );
+app.use(cors({
+  origin: true, // Reflects the request origin (safe with proxy)
+  credentials: true,
+}));
 
 // Body Parsers
 app.use(express.json({ limit: "10mb" }));
