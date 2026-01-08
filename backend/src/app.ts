@@ -13,6 +13,7 @@ import { errorHandler } from "./middleware/errorHandler.middleware.js";
 import { notFoundHandler } from "./middleware/notFound.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 import swaggerDocument from "./swagger.json";
+import { ApiError } from "./utils/apiError.js";
 import logger from "./utils/logger.js";
 
 const app = express();
@@ -43,24 +44,40 @@ app.use(
 // CORS – Restrictive in production
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "http://localhost:3000", // Dev only
+  "http://localhost:3000",
   "http://localhost:3001",
+  "http://localhost:5173",
 ].filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow non-browser requests (e.g., Postman, mobile apps)
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        logger.warn(`CORS blocked origin: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
+      // Allow requests with no origin (mobile apps, Postman, curl)
+      if (!origin) return callback(null, true);
+
+      // Allow all Vercel preview deployments during development/testing
+      if (origin.includes(".vercel.app")) {
+        return callback(null, true);
       }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      logger.warn(`CORS blocked origin: ${origin}`);
+      return callback(new ApiError(403, "Not allowed by CORS"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Content-Length", "X-Request-Id"],
+    maxAge: 600,
   })
 );
 
