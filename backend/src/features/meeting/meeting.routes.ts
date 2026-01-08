@@ -12,6 +12,9 @@ router.post("/adhoc", authenticate, authorize("ADMIN", "MODERATOR"), MeetingCont
 // Add this route
 router.get("/adhoc/:callId/token", authenticate, MeetingController.getAdHocJoinToken);
 
+// Get guest token
+router.post("/adhoc/:callId/guest-token", MeetingController.getGuestToken);
+
 // Get join token for participant
 router.get("/:bookingId/token", authenticate, MeetingController.getJoinToken);
 

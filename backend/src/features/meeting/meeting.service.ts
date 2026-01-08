@@ -93,23 +93,53 @@ export class MeetingService {
   }
 
   // Add this method
-static async generateAdHocJoinToken(userId: string, callId: string) {
-  // Basic validation - call must exist in Stream
-  const call = streamClient.video.call("default", callId);
-  try {
-    await call.get(); // Check if call exists
-  } catch {
-    throw ApiError.notFound("Meeting not found");
+  static async generateAdHocJoinToken(userId: string, callId: string) {
+    // Basic validation - call must exist in Stream
+    const call = streamClient.video.call("default", callId);
+    try {
+      await call.get(); // Check if call exists
+    } catch {
+      throw ApiError.notFound("Meeting not found");
+    }
+
+    const token = streamClient.createToken(userId);
+
+    return {
+      token,
+      callId,
+      callType: "default",
+    };
   }
 
-  const token = streamClient.createToken(userId);
+  // Add this method for guest access
+  static async generateGuestToken(callId: string, guestName: string) {
+    const call = streamClient.video.call("default", callId);
+    try {
+      await call.get();
+    } catch {
+      throw ApiError.notFound("Meeting not found");
+    }
 
-  return {
-    token,
-    callId,
-    callType: "default",
-  };
-}
+    // Create a temporary user ID for the guest
+    const guestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Upsert guest user first
+    await streamClient.upsertUsers([{
+      id: guestId,
+      name: guestName,
+      role: "guest",
+    }]);
+
+    // Create token for this guest (expiration default)
+    const token = streamClient.createToken(guestId);
+
+    return {
+      token,
+      callId,
+      callType: "default",
+      user: { id: guestId, name: guestName },
+    };
+  }
 
   // 4. Approve recording (only for booking-based meetings)
   static async approveRecording(meetingId: string, adminId: string, approved: boolean) {
