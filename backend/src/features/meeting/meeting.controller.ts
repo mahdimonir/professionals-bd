@@ -1,5 +1,5 @@
-import { ApiError } from "@/utils/apiError.js";
 import { NextFunction, Request, Response } from "express";
+import { ApiError } from "../../utils/apiError.js";
 import { ApiResponse } from "../../utils/apiResponse.js";
 import { MeetingService } from "./meeting.service.js";
 
