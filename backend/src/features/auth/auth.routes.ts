@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { env } from "../../config/env.js";
+import { authenticate } from "../../middleware/auth.middleware.js";
 import { authLimiter } from "../../middleware/rateLimit.middleware.js";
 import { validate } from "../../middleware/validation.middleware.js";
 import { AuthController } from "./auth.controller.js";
@@ -28,6 +29,11 @@ router.post("/logout", authLimiter, validate(logoutSchema), AuthController.logou
 
 router.post("/forgot-password", authLimiter, validate(forgotPasswordSchema), AuthController.sendPasswordResetOTP);
 router.post("/reset-password", authLimiter, validate(resetPasswordSchema), AuthController.resetPassword);
+
+// Authenticated user account changes
+router.post("/change-password", authenticate, authLimiter, AuthController.changePassword);
+router.post("/change-email/request", authenticate, authLimiter, AuthController.requestEmailChange);
+router.post("/change-email/verify", authenticate, authLimiter, AuthController.verifyEmailChange);
 
 // Google Social Login
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));

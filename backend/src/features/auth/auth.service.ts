@@ -264,21 +264,48 @@ export class AuthService {
   static async refreshToken(refreshToken: string) {
     if (!refreshToken) throw new ApiError(401, "Refresh token required");
 
-    const tokenRecord = await prisma.refreshToken.findFirst({
-      where: { expiresAt: { gt: new Date() } },
+    let decoded: any;
+    try {
+      decoded = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET);
+    } catch (error) {
+      throw new ApiError(401, "Invalid refresh token signature");
+    }
+
+    if (!decoded || !decoded.userId) {
+      throw new ApiError(401, "Invalid refresh token payload");
+    }
+
+    // Find all valid refresh tokens for this user
+    const userTokens = await prisma.refreshToken.findMany({
+      where: {
+        userId: decoded.userId,
+        expiresAt: { gt: new Date() }
+      },
       include: { user: { select: { id: true, name: true, email: true, role: true, avatar: true } } },
     });
 
-    if (!tokenRecord) throw new ApiError(401, "Invalid or expired refresh token");
+    let tokenRecord = null;
 
-    const isValid = await bcrypt.compare(refreshToken, tokenRecord.tokenHash);
-    if (!isValid) throw new ApiError(401, "Invalid refresh token");
+    // Find the specific token record that matches the provided string
+    for (const record of userTokens) {
+      const isMatch = await bcrypt.compare(refreshToken, record.tokenHash);
+      if (isMatch) {
+        tokenRecord = record;
+        break;
+      }
+    }
+
+    if (!tokenRecord) {
+      // Token is valid JWT but not in DB (maybe revoked or rotated already)
+      // Optional: Reuse detection logic could trigger here (invalidate all tokens for user)
+      throw new ApiError(401, "Refresh token reused or revoked");
+    }
 
     const newAccessToken = generateAccessToken(tokenRecord.userId);
     const newRefreshToken = generateRefreshToken(tokenRecord.userId);
     const newRefreshHash = await bcrypt.hash(newRefreshToken, 12);
 
-    // Replace old token
+    // Rotate the token (Replace old with new)
     await prisma.refreshToken.update({
       where: { id: tokenRecord.id },
       data: { tokenHash: newRefreshHash, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
@@ -304,5 +331,116 @@ export class AuthService {
         await prisma.refreshToken.delete({ where: { id: tokenRecord.id } });
       }
     }
+  }
+
+  // Change password for logged-in users
+  static async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true, email: true },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new ApiError(404, "User not found or uses social login");
+    }
+
+    const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isCurrentValid) {
+      throw new ApiError(401, "Current password is incorrect");
+    }
+
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    });
+
+    // Invalidate all other sessions (keep current one active)
+    await prisma.refreshToken.deleteMany({ where: { userId } });
+
+    logger.info(`Password changed for user: ${user.email}`);
+    return { message: "Password changed successfully. Please log in again." };
+  }
+
+  // Email change: Step 1 - Request change (verify password, send OTP to NEW email)
+  static async requestEmailChange(userId: string, currentPassword: string, newEmail: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, passwordHash: true, email: true, name: true },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new ApiError(404, "User not found or uses social login");
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new ApiError(401, "Password is incorrect");
+    }
+
+    // Check if new email is already in use
+    const existingUser = await prisma.user.findUnique({ where: { email: newEmail } });
+    if (existingUser) {
+      throw new ApiError(400, "Email is already in use");
+    }
+
+    // Send OTP to NEW email
+    const otp = generateOTP();
+    await this.createOrUpdateOTP({
+      email: newEmail,
+      type: "REGISTRATION", // Reuse registration type for email verification
+      code: otp,
+      tempData: { name: userId }, // Store userId in tempName to link back
+    });
+
+    await emailService.sendRegistrationOTP(newEmail, user.name || "User", otp);
+
+    logger.info(`Email change OTP sent to new email: ${newEmail} for user: ${user.email}`);
+    return { message: "Verification code sent to your new email address" };
+  }
+
+  // Email change: Step 2 - Verify OTP and update email
+  static async verifyEmailChange(userId: string, newEmail: string, otp: string) {
+    const otpRecord = await prisma.oTP.findUnique({
+      where: { email_type: { email: newEmail, type: "REGISTRATION" } },
+    });
+
+    if (!otpRecord) {
+      throw new ApiError(400, "Invalid verification request");
+    }
+
+    // Verify the userId matches
+    if (otpRecord.tempName !== userId) {
+      throw new ApiError(400, "Invalid verification request");
+    }
+
+    if (otpRecord.expiresAt < new Date()) {
+      await prisma.oTP.delete({ where: { id: otpRecord.id } });
+      throw new ApiError(400, "Verification code expired");
+    }
+
+    const isValid = await this.verifyOTPHash(otpRecord.codeHash, otp);
+    if (!isValid) {
+      await prisma.oTP.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new ApiError(400, "Invalid verification code");
+    }
+
+    // Update user's email
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail },
+      select: { id: true, name: true, email: true, role: true, avatar: true },
+    });
+
+    await prisma.oTP.delete({ where: { id: otpRecord.id } });
+
+    // Invalidate all sessions (security measure)
+    await prisma.refreshToken.deleteMany({ where: { userId } });
+
+    logger.info(`Email changed to: ${newEmail} for user: ${userId}`);
+    return { message: "Email updated successfully. Please log in again.", user };
   }
 }

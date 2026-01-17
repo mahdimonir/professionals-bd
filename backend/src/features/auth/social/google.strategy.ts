@@ -16,7 +16,7 @@ passport.use(
     {
       clientID: env.GOOGLE_CLIENT_ID!,
       clientSecret: env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: `${env.BASE_URL}/api/v1/auth/google/callback`,
+      callbackURL: `${env.BASE_URL}/auth/google/callback`,
       scope: ["profile", "email"],
       proxy: true, // Important for production behind proxy
     },
@@ -24,7 +24,7 @@ passport.use(
       try {
         const email = profile.emails?.[0]?.value;
         if (!email) {
-            return done(new Error("No email found from Google provider"));
+          return done(new Error("No email found from Google provider"));
         }
 
         let user = await prisma.user.findFirst({

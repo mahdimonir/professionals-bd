@@ -81,4 +81,40 @@ export class AuthController {
       next(error);
     }
   }
+
+  // Change password for logged-in users
+  static async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const { currentPassword, newPassword } = req.body;
+      const result = await AuthService.changePassword(userId, currentPassword, newPassword);
+      res.json(new ApiResponse(200, result, "Password changed successfully"));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Email change: Step 1 - Request (verify password, send OTP)
+  static async requestEmailChange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const { currentPassword, newEmail } = req.body;
+      const result = await AuthService.requestEmailChange(userId, currentPassword, newEmail);
+      res.json(new ApiResponse(200, result, "Verification code sent to new email"));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Email change: Step 2 - Verify OTP
+  static async verifyEmailChange(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user!.id;
+      const { newEmail, otp } = req.body;
+      const result = await AuthService.verifyEmailChange(userId, newEmail, otp);
+      res.json(new ApiResponse(200, result, "Email updated successfully"));
+    } catch (error) {
+      next(error);
+    }
+  }
 }

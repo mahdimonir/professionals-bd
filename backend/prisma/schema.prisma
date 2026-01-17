@@ -15,6 +15,7 @@ enum Role {
 
 enum BookingStatus {
   PENDING
+  PAID
   CONFIRMED
   COMPLETED
   CANCELLED
@@ -38,32 +39,35 @@ enum PaymentStatus {
 
 enum PaymentMethod {
   BKASH
-  ROCKET
-  NAGAD
+  SSL_COMMERZ
+  CASH
 }
 
 enum OTPType {
   REGISTRATION
   PASSWORD_RESET
-  MFA  // Added for future MFA extension
+  MFA // For future MFA extension
+  PROFESSIONAL_ACTIVATION
 }
 
+
 model User {
-  id                   String               @id @default(cuid())
+  id                   String    @id @default(cuid())
   name                 String?
-  email                String               @unique
-  passwordHash         String?              // Optional for social-only users
-  role                 Role                 @default(USER)
-  isVerified           Boolean              @default(false)
-  avatar               String?              // Cloudinary URL
+  email                String    @unique
+  passwordHash         String?
+  role                 Role      @default(USER)
+  moderatorPermissions String[]  @default([])
+  isVerified           Boolean   @default(false)
+  avatar               String?
   bio                  String?
   phone                String?
   location             String?
-  timezone             String               @default("Asia/Dhaka")
+  timezone             String    @default("Asia/Dhaka")
   lastLoginAt          DateTime?
-  failedAttempts       Int                  @default(0)  // For lockout
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  failedAttempts       Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   accounts             Account[]
   refreshTokens        RefreshToken[]
@@ -73,37 +77,44 @@ model User {
   notifications        Notification[]
   disputes             Dispute[]            @relation("Complainant")
   resolvedDisputes     Dispute[]            @relation("ResolvedBy")
-  approvedMeetings     Meeting[]            @relation("ApprovedBy")
+  auditLogs            AuditLog[]           @relation("AuditBy")
+  earnings             Earnings?            @relation("ProfessionalEarnings")
+  withdrawRequests     WithdrawRequest[]    @relation("WithdrawRequests")
+  withdrawProcessed    WithdrawRequest[]    @relation("WithdrawProcessedBy")
+
+  // AI Relations
+  aiChatHistory    AIChatHistory[] @relation("AIChatHistory")
+  aiFeatureToggles AIFeature[]     @relation("AIFeatureEnabledBy")
 
   @@index([email])
   @@index([role])
 }
 
 model Account {
-  id                 String    @id @default(cuid())
-  userId             String
-  provider           String    // 'google', 'facebook', 'email', etc.
-  providerAccountId  String    // Provider's unique ID (or email for password auth)
-  accessToken        String?   // Short-lived, optional
-  refreshToken       String?   // Hashed if stored
-  expiresAt          DateTime? // For access token
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  userId            String
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
 model RefreshToken {
-  id         String   @id @default(cuid())
-  userId     String
-  tokenHash  String   // Hashed refresh token
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -111,95 +122,124 @@ model RefreshToken {
 model OTP {
   id          String   @id @default(cuid())
   email       String
-  codeHash    String 
+  codeHash    String
   type        OTPType
   expiresAt   DateTime
   attempts    Int      @default(0)
-  resendCount Int      @default(0) 
+  resendCount Int      @default(0)
   createdAt   DateTime @default(now())
 
-  tempName     String?
-  tempPasswordHash String? 
-  tempPhone    String?
+  tempName         String?
+  tempPasswordHash String?
+  tempPhone        String?
 
-  @@unique([email, type]) 
+  @@unique([email, type])
   @@index([email])
-  @@index([expiresAt]) 
+  @@index([expiresAt])
 }
 
-model ProfessionalProfile {
-  id             String    @id @default(cuid())
-  userId         String    @unique
-  specialties    String[]
-  certifications String[]  // Cloudinary URLs
-  rates          Decimal
-  availability   Json?     // e.g., { "slots": [...] }
-  experience     Int?
-  languages      String[]
-  isVerified     Boolean   @default(false)  // Admin approval
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+enum ApplicationStatus {
+  DRAFT
+  PENDING
+  VERIFIED
+  APPROVED
+  REJECTED
+}
 
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+model ProfessionalProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Public Profile Data
+  title              String?
+  bio                String?
+  category           String?
+  specialties        String[]
+  languages          String[]
+  experience         Int?
+  items              Int?     @default(0) // Dummy field if needed for future
+  sessionPrice       Decimal? @default(0)
+  platformCommission Decimal  @default(30)
+
+  // Vetting Data
+  linkedinUrl    String?
+  cvUrl          String?
+  education      String[]
+  certifications String[]
+
+  // Workflow
+  status          ApplicationStatus @default(PENDING)
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  availability Json?
+
+  pendingChanges Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([status])
 }
 
 model Booking {
-  id                   String         @id @default(cuid())
-  userId               String
-  professionalId       String
-  startTime            DateTime
-  endTime              DateTime
-  status               BookingStatus  @default(PENDING)
-  notes                String?
-  price                Decimal?
-  cancellationReason   String?
-  cancelledBy          String?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  id                 String        @id @default(cuid())
+  userId             String
+  professionalId     String
+  startTime          DateTime
+  endTime            DateTime
+  status             BookingStatus @default(PENDING)
+  notes              String?
+  price              Decimal?
+  cancellationReason String?
+  cancelledBy        String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
-  user                 User           @relation("UserBookings", fields: [userId], references: [id])
-  professional         User           @relation("ProfessionalBookings", fields: [professionalId], references: [id])
-  meeting              Meeting?
-  review               Review?
-  payment              Payment?
-  dispute              Dispute?
+  user         User     @relation("UserBookings", fields: [userId], references: [id])
+  professional User     @relation("ProfessionalBookings", fields: [professionalId], references: [id])
+  meeting      Meeting?
+  review       Review?
+  payment      Payment?
+  dispute      Dispute?
 
   @@index([userId])
   @@index([professionalId])
   @@index([status])
   @@index([startTime])
-  @@index([professionalId, startTime]) 
+  @@index([professionalId, startTime])
 }
 
 model Meeting {
-  id                   String   @id @default(cuid())
-  bookingId            String   @unique
-  streamCallId         String  
-  recorded             Boolean  @default(false)
-  recordingUrl         String?  
-  transcript           String?  
-  approvedForStorage   Boolean  @default(false)  
-  approvedBy           String?  
-  approvedAt           DateTime?
+  id           String  @id @default(cuid())
+  bookingId    String  @unique
+  streamCallId String
+  recorded     Boolean @default(false)
+  recordingUrl String?
+  transcript   String?
 
-  booking              Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  approvedByUser       User?    @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
   @@index([streamCallId])
 }
 
 model Notification {
-  id       String             @id @default(cuid())
-  userId   String
-  type     NotificationType
-  message  String
-  sentAt   DateTime           @default(now())
-  isRead   Boolean            @default(false)
+  id      String           @id @default(cuid())
+  userId  String
+  type    NotificationType
+  message String
+  sentAt  DateTime         @default(now())
+  isRead  Boolean          @default(false)
 
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([type])
@@ -207,69 +247,165 @@ model Notification {
 }
 
 model Review {
-  id         String   @id @default(cuid())
-  bookingId  String   @unique
-  rating     Int      // 1-5
-  comment    String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  bookingId String   @unique
+  rating    Int // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
 
-  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@index([bookingId])
   @@index([rating])
 }
 
 model Payment {
-  id               String         @id @default(cuid())
-  bookingId        String         @unique
-  amount           Decimal
-  status           PaymentStatus  @default(PENDING)
-  paymentMethod    PaymentMethod
-  trxId            String?
-  payerMobile      String?
-  merchantInvoice  String?
-  paidAt           DateTime?
-  refundAmount     Decimal        @default(0)
-  refundTrxId      String?
-  invoiceUrl       String?        // Cloudinary PDF
-  createdAt        DateTime       @default(now())
+  id            String        @id @default(cuid())
+  bookingId     String        @unique
+  amount        Decimal
+  currency      String        @default("BDT")
+  method        PaymentMethod
+  transactionId String?
+  status        PaymentStatus @default(PENDING)
+  paymentUrl    String?
+  refundAmount  Decimal       @default(0)
+  refundTrxId   String?
+  invoiceUrl    String?
+  payerNumber   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  logs             PaymentLog[]
+  booking Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  logs    PaymentLog[]
 
   @@index([bookingId])
   @@index([status])
-  @@index([paymentMethod])
+  @@index([method])
+  @@index([transactionId])
 }
 
 model PaymentLog {
-  id         String   @id @default(cuid())
-  paymentId  String
-  action     String   // 'CREATE', 'EXECUTE', etc.
-  request    Json?
-  response   Json?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  paymentId String
+  action    String // 'CREATE', 'EXECUTE', etc.
+  request   Json?
+  response  Json?
+  createdAt DateTime @default(now())
 
-  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([createdAt])
 }
 
 model Dispute {
-  id           String   @id @default(cuid())
-  bookingId    String   @unique
-  userId       String   // Complainant
-  description  String
-  status       String   @default("OPEN")  // OPEN, RESOLVED, CLOSED
-  resolvedBy   String?  // Moderator/Admin ID
-  resolvedAt   DateTime?
+  id          String    @id @default(cuid())
+  bookingId   String?   @unique
+  userId      String
+  description String
+  metadata    Json?
+  status      String    @default("OPEN")
+  type        String    @default("BOOKING")
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
 
-  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  user         User     @relation("Complainant", fields: [userId], references: [id])
-  resolvedByUser User?  @relation("ResolvedBy", fields: [resolvedBy], references: [id])
+  booking        Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user           User     @relation("Complainant", fields: [userId], references: [id])
+  resolvedByUser User?    @relation("ResolvedBy", fields: [resolvedBy], references: [id])
 
   @@index([bookingId])
   @@index([userId])
   @@index([status])
+}
+
+enum AuditAction {
+  USER_BAN
+  REFUND_APPROVE
+  DISPUTE_RESOLVE
+  WITHDRAW_APPROVE
+  PRO_VERIFY
+  PRO_APPROVE
+  PRO_REJECT
+  BOOKING_CANCEL
+  PRO_DRAFT_CREATED
+  PRO_DRAFT_ACTIVATED
+  PRO_REVERT_CHANGES
+  DISPUTE_RESCHEDULE_RESOLVE
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  performedBy String
+  targetId    String?
+  details     Json?
+  createdAt   DateTime    @default(now())
+
+  performedByUser User? @relation("AuditBy", fields: [performedBy], references: [id])
+
+  @@index([action])
+  @@index([performedBy])
+  @@index([createdAt])
+}
+
+model Earnings {
+  id              String   @id @default(cuid())
+  professionalId  String   @unique
+  totalEarnings   Decimal  @default(0)
+  pendingEarnings Decimal  @default(0)
+  withdrawn       Decimal  @default(0)
+  updatedAt       DateTime @updatedAt
+
+  professional User @relation("ProfessionalEarnings", fields: [professionalId], references: [id], onDelete: Cascade)
+}
+
+model WithdrawRequest {
+  id             String        @id @default(cuid())
+  professionalId String
+  amount         Decimal
+  method         PaymentMethod
+  status         String        @default("PENDING")
+  requestedAt    DateTime      @default(now())
+  processedAt    DateTime?
+  processedBy    String?
+
+  professional    User  @relation("WithdrawRequests", fields: [professionalId], references: [id], onDelete: Cascade)
+  processedByUser User? @relation("WithdrawProcessedBy", fields: [processedBy], references: [id])
+
+  @@index([professionalId])
+  @@index([status])
+  @@index([requestedAt])
+}
+
+// AI Feature Management
+model AIFeature {
+  id          String   @id @default(cuid())
+  featureName String   @unique
+  enabled     Boolean  @default(false)
+  description String?
+  enabledBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  enabledByUser User? @relation("AIFeatureEnabledBy", fields: [enabledBy], references: [id])
+
+  @@index([featureName])
+}
+
+// AI Chat History (READ-ONLY logging)
+model AIChatHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  query       String   @db.Text
+  response    String   @db.Text
+  contextType String?
+  tokensUsed  Int?
+  createdAt   DateTime @default(now())
+
+  user User @relation("AIChatHistory", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([contextType])
+  @@index([createdAt])
 }

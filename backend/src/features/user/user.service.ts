@@ -10,19 +10,33 @@ export class UserService {
         name: true,
         email: true,
         role: true,
+        moderatorPermissions: true,
+        isVerified: true,
         avatar: true,
         bio: true,
         phone: true,
         location: true,
         timezone: true,
         createdAt: true,
+        lastLoginAt: true,
         professionalProfile: {
           select: {
+            id: true,
+            title: true,
+            status: true,
             specialties: true,
-            rates: true,
-            experience: true,
             languages: true,
-            isVerified: true,
+            sessionPrice: true,
+            platformCommission: true,
+            experience: true,
+            rejectionReason: true,
+            linkedinUrl: true,
+            cvUrl: true,
+            certifications: true,
+            availability: true,
+            verifiedAt: true,
+            approvedAt: true,
+            createdAt: true,
           },
         },
       },
@@ -89,11 +103,14 @@ export class UserService {
         createdAt: true,
         professionalProfile: {
           select: {
+            id: true,
+            title: true,
+            status: true,
             specialties: true,
-            rates: true,
+            sessionPrice: true,
             experience: true,
             languages: true,
-            isVerified: true,
+            rejectionReason: true,
           },
         },
       },
@@ -139,8 +156,9 @@ export class UserService {
           professionalProfile: {
             select: {
               specialties: true,
-              rates: true,
-              isVerified: true,
+              sessionPrice: true,
+              status: true,
+              title: true,
             },
           },
         },
@@ -155,38 +173,6 @@ export class UserService {
         limit: query.limit,
         total,
         pages: Math.ceil(total / query.limit),
-      },
-    };
-  }
-
-  static async getAllUsers(page: number = 1, limit: number = 20) {
-    const skip = (page - 1) * limit;
-
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        skip,
-        take: limit,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          avatar: true,
-          isVerified: true,
-          createdAt: true,
-        },
-      }),
-      prisma.user.count(),
-    ]);
-
-    return {
-      users,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
       },
     };
   }

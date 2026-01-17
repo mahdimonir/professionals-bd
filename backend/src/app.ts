@@ -3,11 +3,19 @@ import express from "express";
 import helmet from "helmet";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
+import pkg from "../package.json";
+import { adminRoutes } from "./features/admin/admin.routes.js";
+import { aiRoutes } from "./features/ai/ai.routes";
 import { authRoutes } from "./features/auth/auth.routes.js";
 import { bookingRoutes } from "./features/booking/booking.routes.js";
+import { disputeRoutes } from "./features/dispute/dispute.routes.js";
 import { mediaRoutes } from "./features/media/media.routes.js";
 import { meetingRoutes } from "./features/meeting/meeting.routes.js";
+import { paymentRoutes } from "./features/payment/payment.routes.js";
+import { earningsRoutes } from "./features/professional/earnings.routes.js";
 import { professionalRoutes } from "./features/professional/professional.routes.js";
+import { reportRoutes } from "./features/reports/report.routes.js";
+import { reviewRoutes } from "./features/review/review.routes.js";
 import { userRoutes } from "./features/user/user.routes.js";
 import { errorHandler } from "./middleware/errorHandler.middleware.js";
 import { notFoundHandler } from "./middleware/notFound.middleware.js";
@@ -42,58 +50,98 @@ app.use(
 );
 
 // CORS – Restrictive in production
-// const allowedOrigins = [
-//   process.env.FRONTEND_URL,
-//   "http://localhost:3000",
-//   "http://localhost:3001",
-//   "http://localhost:5173",
-// ].filter(Boolean);
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5173",
+].filter(Boolean);
 
-// app.use(
-//   cors({
-//     origin: (origin, callback) => {
-//       // Allow requests with no origin (mobile apps, Postman, curl)
-//       if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      console.log('Incoming Origin:', origin);
+      // Allow requests with no origin (mobile apps, Postman, curl)
+      if (!origin || origin === 'null') return callback(null, true);
 
-//       // Allow all Vercel preview deployments during development/testing
-//       if (origin.includes(".vercel.app")) {
-//         return callback(null, true);
-//       }
+      // Allow all Vercel preview deployments during development/testing
+      if (origin.includes(".vercel.app")) {
+        return callback(null, true);
+      }
 
-//       if (allowedOrigins.includes(origin)) {
-//         return callback(null, true);
-//       }
+      // Allow SSLCommerz (Sandbox & Live)
+      if (origin.endsWith("sslcommerz.com")) {
+        return callback(null, true);
+      }
 
-//       logger.warn(`CORS blocked origin: ${origin}`);
-//       return callback(new ApiError(403, "Not allowed by CORS"));
-//     },
-//     credentials: true,
-//     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-//     allowedHeaders: [
-//       "Content-Type",
-//       "Authorization",
-//       "X-Requested-With",
-//       "Accept",
-//       "Origin",
-//     ],
-//     exposedHeaders: ["Content-Length", "X-Request-Id"],
-//     maxAge: 600,
-//   })
-// );
-app.use(cors({
-  origin: true, // Reflects the request origin (safe with proxy)
-  credentials: true,
-}));
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      logger.warn(`CORS blocked origin: ${origin}`);
+      return callback(new ApiError(403, "Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Content-Length", "X-Request-Id"],
+    maxAge: 600,
+  })
+);
 
 // Body Parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Serve Swagger static assets (optional – you can use CDN instead)
-app.use("/api-docs/static", express.static(path.join(process.cwd(), "node_modules/swagger-ui-dist")));
+app.use(
+  "/api-docs/static",
+  express.static(path.join(process.cwd(), "node_modules/swagger-ui-dist"))
+);
+
+// Serve Invoice PDFs (Temp)
+app.use(
+  "/api/v1/invoices",
+  express.static(path.join(process.cwd(), "temp"))
+);
 
 // General API rate limiting
 app.use("/api/v1", apiLimiter);
+
+// Root Route
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Welcome to West Bound Travels API",
+    version: pkg.version,
+    description: pkg.description,
+    documentation: `${req.protocol}://${req.get("host")}/api-docs`,
+    health_check: `${req.protocol}://${req.get("host")}/health`,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+
+// API Routes
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/professionals", professionalRoutes);
+app.use("/api/v1/earnings", earningsRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/meetings", meetingRoutes);
+app.use("/api/v1/media", mediaRoutes);
+app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/disputes", disputeRoutes);
+app.use("/api/v1/reviews", reviewRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/reports", reportRoutes);
+app.use("/api/v1/ai", aiRoutes);
 
 // Health Check – Public
 app.get("/health", (req, res) => {
@@ -105,20 +153,16 @@ app.get("/health", (req, res) => {
   });
 });
 
-// API Routes
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/users", userRoutes);
-app.use("/api/v1/professionals", professionalRoutes);
-app.use("/api/v1/bookings", bookingRoutes);
-app.use("/api/v1/meetings", meetingRoutes);
-app.use("/api/v1/media", mediaRoutes);
-
 // Swagger Documentation
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  swaggerOptions: {
-    persistAuthorization: true,
-  },
-}));
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  })
+);
 
 // 404 Handler – Clean and consistent
 app.use(notFoundHandler);
