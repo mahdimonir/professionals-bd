@@ -1,8 +1,8 @@
-import { env } from "@/config/env.js";
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import prisma from "../../config/client.js";
+import { env } from "../../config/env.js";
 import { emailService } from "../../services/email.service.js";
 import { ApiError } from "../../utils/apiError.js";
 
