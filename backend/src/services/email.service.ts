@@ -1,7 +1,16 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
-import { bookingConfirmation, bookingStatusUpdate, passwordResetOTP, registrationOTP } from "../templates/emails";
-import { invoiceEmail } from "../templates/emails/invoice.template.js";
+import {
+  bookingConfirmation,
+  bookingStatusUpdate,
+  disputeNotificationUser,
+  disputeRaisedAdmin,
+  disputeResolved,
+  disputeResolvedProfessional,
+  invoiceEmail,
+  passwordResetOTP,
+  registrationOTP
+} from "../templates/emails/index.js";
 import logger from "../utils/logger.js";
 
 class EmailService {
@@ -144,7 +153,6 @@ class EmailService {
     professionalName: string,
     description: string
   ): Promise<boolean> {
-    const { disputeRaisedAdmin } = await import("../templates/emails/dispute.template.js");
     const html = disputeRaisedAdmin(bookingId, disputeId, userName, professionalName, description);
 
     return this.send({
@@ -161,7 +169,6 @@ class EmailService {
     disputeId: string,
     message: string
   ): Promise<boolean> {
-    const { disputeNotificationUser } = await import("../templates/emails/dispute.template.js");
     const html = disputeNotificationUser(userName, bookingId, disputeId, message);
 
     return this.send({
@@ -180,7 +187,6 @@ class EmailService {
     refundAmount?: number,
     note?: string
   ): Promise<boolean> {
-    const { disputeResolved } = await import("../templates/emails/dispute.template.js");
     const html = disputeResolved(complainantName, bookingId, disputeId, status, refundAmount, note);
 
     return this.send({
@@ -198,7 +204,6 @@ class EmailService {
     status: "approved" | "rejected",
     note?: string
   ): Promise<boolean> {
-    const { disputeResolvedProfessional } = await import("../templates/emails/dispute.template.js");
     const html = disputeResolvedProfessional(professionalName, bookingId, disputeId, status, note);
 
     return this.send({
