@@ -1,8 +1,7 @@
 import app from "./app.js";
 import prisma from "./config/client.js";
 import { env } from "./config/env.js";
-import { startOTPCleanupJob } from "./jobs/cleanupExpiredOTPs";
-import { startInvoiceCleanupJob } from "./jobs/cleanupInvoices";
+import { startInvoiceCleanupJob, startOTPCleanupJob } from "./jobs/index.js";
 import logger from "./utils/logger.js";
 
 const PORT = env.PORT || 8000;
