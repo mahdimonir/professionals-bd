@@ -9,6 +9,8 @@ import {
 } from "./dispute.template.js";
 
 
+import { invoiceEmail } from "./invoice.template.js";
+
 export {
     bookingConfirmation,
     bookingStatusUpdate,
@@ -17,6 +19,7 @@ export {
     disputeResolved,
     disputeResolvedProfessional,
     emailBaseTemplate,
+    invoiceEmail,
     passwordResetOTP,
     registrationOTP
 };
