@@ -21,8 +21,6 @@ import { errorHandler } from "./middleware/errorHandler.middleware.js";
 import { notFoundHandler } from "./middleware/notFound.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 import swaggerDocument from "./swagger.json";
-import { ApiError } from "./utils/apiError.js";
-import logger from "./utils/logger.js";
 
 const app = express();
 
@@ -50,36 +48,39 @@ app.use(
 );
 
 // CORS – Restrictive in production
+// CORS Configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL, // Production Main URL
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:5173",
-].filter(Boolean);
+].filter(Boolean) as string[];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      console.log('Incoming Origin:', origin);
-      // Allow requests with no origin (mobile apps, Postman, curl)
-      if (!origin || origin === 'null') return callback(null, true);
+      // Allow requests with no origin (mobile apps, server-to-server, Postman)
+      if (!origin) return callback(null, true);
 
-      // Allow all Vercel preview deployments during development/testing
-      if (origin.includes(".vercel.app")) {
-        return callback(null, true);
-      }
-
-      // Allow SSLCommerz (Sandbox & Live)
-      if (origin.endsWith("sslcommerz.com")) {
-        return callback(null, true);
-      }
-
+      // Check against allowed list
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      logger.warn(`CORS blocked origin: ${origin}`);
-      return callback(new ApiError(403, "Not allowed by CORS"));
+      // Allow Vercel Preview Deployments (e.g., https://project-git-branch-user.vercel.app)
+      // Regex matches: https:// + anything + .vercel.app
+      const vercelPreviewPattern = /^https:\/\/.*\.vercel\.app$/;
+      if (vercelPreviewPattern.test(origin)) {
+        return callback(null, true);
+      }
+
+      // Allow SSLCommerz
+      if (origin.endsWith(".sslcommerz.com")) {
+        return callback(null, true);
+      }
+
+      console.warn(`[CORS] Blocked Origin: ${origin}`);
+      return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

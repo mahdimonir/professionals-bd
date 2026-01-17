@@ -81,7 +81,7 @@ export default function HomePage() {
             <div className="max-w-5xl mx-auto w-full px-4 mt-12">
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6">Popular Services</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mx-auto">
                 {/* Lawyer */}
                 <a
                   href="/professionals?cat=Legal"
