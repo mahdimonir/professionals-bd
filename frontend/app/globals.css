@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px); 
+  }
+  50% { 
+    transform: translateY(-10px); 
+  }
+}
+
+.floating {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fade-in 0.5s ease-out;
+}
+
+@keyframes slide-in-from-top {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in-from-top-4 {
+  animation: slide-in-from-top 0.7s ease-out;
+}
+
+@keyframes slide-in-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-from-right-8 {
+  animation: slide-in-from-right 0.7s ease-out;
+}
+
+/* Glassmorphism effects */
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+  
+  .dark .glass {
+    @apply bg-slate-800/40;
+  }
+  
+  .light .glass {
+    @apply bg-white/80 border-black/5;
+  }
+  
+  .glass-dark {
+    @apply bg-slate-800/70 backdrop-blur-xl border border-white/5;
+  }
+  
+  .light .glass-dark {
+    @apply bg-white/80 border-black/5;
+  }
+}
+
+/* Scrollbar styling */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-black/5;
+}
+
+.dark ::-webkit-scrollbar-track {
+  @apply bg-white/5;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-primary-500/50 rounded;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary-500/70;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-primary-500/60;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-primary-500/80;
+}
+
+/* Stream.io SDK custom overrides */
+.str-video__call-controls {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 2rem !important;
+  padding: 1rem !important;
+}
+
+.str-video__participant-view {
+  border-radius: 1rem;
+  overflow: hidden;
+}

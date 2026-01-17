@@ -18,18 +18,18 @@ export class MeetingController {
     try {
       const userId = req.user!.id;
       const { title } = req.body;
-      const result = await MeetingService.createAdHocMeeting(userId, title);
-    res.status(201).json(ApiResponse.created(result, "Ad-hoc meeting created"));
-  } catch (error) {
-    next(error);
+      const { callId, callType } = await MeetingService.createAdHocMeeting(userId, title);
+      res.status(201).json(ApiResponse.created({ callId, callType }, "Ad-hoc meeting created"));
+    } catch (error) {
+      next(error);
+    }
   }
-}
 
   static async getJoinToken(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const { bookingId } = req.params;
-      const tokenData = await MeetingService.generateJoinToken(userId, bookingId);
+      const tokenData = await MeetingService.generateJoinToken(userId, `booking-${bookingId}`);
       res.json(ApiResponse.success(tokenData));
     } catch (error) {
       next(error);
@@ -37,36 +37,47 @@ export class MeetingController {
   }
 
   static async getAdHocJoinToken(req: Request, res: Response, next: NextFunction) {
-  try {
-    const userId = req.user!.id;
-    const { callId } = req.params;
-    const tokenData = await MeetingService.generateAdHocJoinToken(userId, callId);
-    res.json(ApiResponse.success(tokenData));
-  } catch (error) {
-    next(error);
-  }
-}
-
-static async getGuestToken(req: Request, res: Response, next: NextFunction) {
-  try {
-    const { callId } = req.params;
-    const { guestName } = req.body;
-
-    if (!guestName) throw ApiError.badRequest("guestName is required");
-
-    const tokenData = await MeetingService.generateGuestToken(callId, guestName);
-    res.json(ApiResponse.success(tokenData));
-  } catch (error) {
-    next(error);
-  }
-}
-  static async approveRecording(req: Request, res: Response, next: NextFunction) {
     try {
-      const { meetingId } = req.params;
-      const { approved } = req.body;
-      const adminId = req.user!.id;
-      const meeting = await MeetingService.approveRecording(meetingId, adminId, approved);
-      res.json(ApiResponse.success(meeting, "Recording approval updated"));
+      const userId = req.user!.id;
+      const { callId } = req.params;
+      const tokenData = await MeetingService.generateAdHocJoinToken(userId, callId);
+      res.json(ApiResponse.success(tokenData));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getGuestToken(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { callId } = req.params;
+      const { guestName } = req.body;
+
+      if (!guestName) throw ApiError.badRequest("guestName is required");
+
+      const tokenData = await MeetingService.generateGuestToken(callId, guestName);
+      res.json(ApiResponse.success(tokenData));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async startRecording(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { callId } = req.params;
+      const userId = req.user!.id;
+      const result = await MeetingService.startRecording(callId, userId);
+      res.json(ApiResponse.success(result));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async stopRecording(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { callId } = req.params;
+      const userId = req.user!.id;
+      const result = await MeetingService.stopRecording(callId, userId);
+      res.json(ApiResponse.success(result));
     } catch (error) {
       next(error);
     }

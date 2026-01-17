@@ -18,8 +18,9 @@ router.post("/adhoc/:callId/guest-token", MeetingController.getGuestToken);
 // Get join token for participant
 router.get("/:bookingId/token", authenticate, MeetingController.getJoinToken);
 
-// Admin approve recording storage
-router.patch("/:meetingId/recording", authenticate, authorize("ADMIN"), MeetingController.approveRecording);
+// Recording control
+router.post("/:callId/recording/start", authenticate, MeetingController.startRecording);
+router.post("/:callId/recording/stop", authenticate, MeetingController.stopRecording);
 
 // Stream.io webhook for recording ready
 router.post("/webhook/recording", MeetingController.recordingWebhook);

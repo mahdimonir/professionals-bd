@@ -27,9 +27,14 @@ export class MeetingService {
       data: {
         created_by_id: booking.professional.id,
         members: [
-          { user_id: booking.user.id },
-          { user_id: booking.professional.id },
+          { user_id: booking.professional.id, role: "host" },
+          { user_id: booking.user.id, role: "guest" },
         ],
+        settings_override: {
+          recording: {
+            mode: "disabled",
+          },
+        },
         custom: { type: "booking", bookingId },
       },
     });
@@ -56,6 +61,14 @@ export class MeetingService {
     await call.getOrCreate({
       data: {
         created_by_id: creatorId,
+        members: [
+          { user_id: creatorId, role: "host" },
+        ],
+        settings_override: {
+          recording: {
+            mode: "disabled",
+          },
+        },
         custom: { type: "adhoc", title: title || "Instant Meeting" },
       },
     });
@@ -108,6 +121,7 @@ export class MeetingService {
       token,
       callId,
       callType: "default",
+      userId,
     };
   }
 
@@ -137,26 +151,38 @@ export class MeetingService {
       token,
       callId,
       callType: "default",
+      userId: guestId,
       user: { id: guestId, name: guestName },
     };
   }
 
-  // 4. Approve recording (only for booking-based meetings)
-  static async approveRecording(meetingId: string, adminId: string, approved: boolean) {
-    const meeting = await prisma.meeting.findUnique({
-      where: { id: meetingId },
-    });
+  static async startRecording(callId: string, userId: string) {
+    const call = streamClient.video.call("default", callId);
 
-    if (!meeting) throw ApiError.notFound("Meeting not found");
+    // Verify user is host
+    const callInfo = await call.get();
+    const member = callInfo.members.find(m => m.user_id === userId);
+    if (!member || member.role !== "host") {
+      throw ApiError.forbidden("Only the host can start recording");
+    }
 
-    return prisma.meeting.update({
-      where: { id: meetingId },
-      data: {
-        approvedForStorage: approved,
-        approvedBy: approved ? adminId : null,
-        approvedAt: approved ? new Date() : null,
-      },
-    });
+    await call.startRecording();
+
+    return { success: true, message: "Recording started" };
+  }
+
+  static async stopRecording(callId: string, userId: string) {
+    const call = streamClient.video.call("default", callId);
+
+    const callInfo = await call.get();
+    const member = callInfo.members.find(m => m.user_id === userId);
+    if (!member || member.role !== "host") {
+      throw ApiError.forbidden("Only the host can stop recording");
+    }
+
+    await call.stopRecording();
+
+    return { success: true, message: "Recording stopped" };
   }
 
   // 5. Webhook handler

@@ -1,7 +1,8 @@
 import app from "./app.js";
 import prisma from "./config/client.js";
 import { env } from "./config/env.js";
-// import { startOTPCleanupJob } from "./jobs/cleanupExpiredOTPs.js";
+import { startOTPCleanupJob } from "./jobs/cleanupExpiredOTPs.js";
+import { startInvoiceCleanupJob } from "./jobs/cleanupInvoices.js";
 import logger from "./utils/logger.js";
 
 const PORT = env.PORT || 8000;
@@ -12,7 +13,8 @@ const server = app.listen(PORT, () => {
   );
 
   // Start cron jobs
-  // startOTPCleanupJob();
+  startOTPCleanupJob();
+  startInvoiceCleanupJob();
 });
 
 // Graceful Shutdown

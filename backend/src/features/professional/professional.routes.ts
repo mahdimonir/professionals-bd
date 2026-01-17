@@ -1,30 +1,38 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../../middleware/auth.middleware.js";
+import { authenticate } from "../../middleware/auth.middleware.js";
 import { validate } from "../../middleware/validation.middleware.js";
 import { ProfessionalController } from "./professional.controller.js";
 import {
-  createProfileSchema,
+  applyProfileSchema,
   updateProfileSchema,
-  verifyProfileSchema,
 } from "./professional.validation.js";
 
 const router = Router();
 
-// Current professional (own profile)
-router.get("/me", authenticate, ProfessionalController.getMyProfile);
-router.post("/me", authenticate, validate(createProfileSchema), ProfessionalController.createProfile);
-router.patch("/me", authenticate, validate(updateProfileSchema), ProfessionalController.updateProfile);
 
-// Public: List all professionals
+// PROFESSIONAL SELF-SERVICE
+
+// Submit professional application
+router.post(
+  "/apply",
+  authenticate,
+  validate(applyProfileSchema),
+  ProfessionalController.submitApplication
+);
+
+// Update professional profile
+router.patch(
+  "/me",
+  authenticate,
+  validate(updateProfileSchema),
+  ProfessionalController.updateProfile
+);
+
+
+// List all APPROVED professionals (public)
 router.get("/", ProfessionalController.getAllProfessionals);
 
-// Admin: Verify professional
-router.patch(
-  "/verify/:userId",
-  authenticate,
-  authorize("ADMIN"),
-  validate(verifyProfileSchema),
-  ProfessionalController.verifyProfessional
-);
+// View specific professional profile (public)
+router.get("/:id", ProfessionalController.getProfessionalProfile);
 
 export const professionalRoutes = router;

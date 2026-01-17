@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../../middleware/auth.middleware.js";
+import { authenticate } from "../../middleware/auth.middleware.js";
 import { validate } from "../../middleware/validation.middleware.js";
 import { UserController } from "./user.controller.js";
 import {
@@ -10,17 +10,14 @@ import {
 
 const router = Router();
 
-// Public: View any user profile
-router.get("/:id", validate(getUserParamsSchema), UserController.getUser);
+// Unified profile endpoint - returns user + professional data if applicable
+router.get("/me", authenticate, UserController.getMyProfile);
+router.patch("/me", authenticate, validate(updateProfileSchema), UserController.updateMyProfile);
 
-// Protected: Current user
-router.get("/me/profile", authenticate, UserController.getMyProfile);
-router.patch("/me/profile", authenticate, validate(updateProfileSchema), UserController.updateMyProfile);
-
-// Search users (public or authenticated)
+// Search users (public - useful for finding professionals)
 router.get("/search", validate(searchUsersQuerySchema), UserController.searchUsers);
 
-// Admin only
-router.get("/admin/all", authenticate, authorize("ADMIN", "MODERATOR"), UserController.getAllUsers);
+// Public: View any user profile (limited fields for professionals to see clients)
+router.get("/:id", validate(getUserParamsSchema), UserController.getUser);
 
 export const userRoutes = router;

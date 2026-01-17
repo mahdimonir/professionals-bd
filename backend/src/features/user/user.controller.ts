@@ -48,15 +48,4 @@ export class UserController {
       next(error);
     }
   }
-
-  static async getAllUsers(req: Request, res: Response, next: NextFunction) {
-    try {
-      const page = Number(req.query.page || 1);
-      const limit = Number(req.query.limit || 20);
-      const result = await UserService.getAllUsers(page, limit);
-      res.json(ApiResponse.success(result));
-    } catch (error) {
-      next(error);
-    }
-  }
 }

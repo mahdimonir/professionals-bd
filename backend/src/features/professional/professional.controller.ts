@@ -3,22 +3,12 @@ import { ApiResponse } from "../../utils/apiResponse.js";
 import { ProfessionalService } from "./professional.service.js";
 
 export class ProfessionalController {
-  static async getMyProfile(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const profile = await ProfessionalService.getProfile(userId);
-      res.json(ApiResponse.success(profile));
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async createProfile(req: Request, res: Response, next: NextFunction) {
+  static async submitApplication(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const data = req.body;
-      const profile = await ProfessionalService.createOrUpdateProfile(userId, data);
-      res.status(201).json(ApiResponse.created(profile, "Professional profile created"));
+      const profile = await ProfessionalService.submitApplication(userId, data);
+      res.status(201).json(ApiResponse.created(profile, "Application submitted successfully"));
     } catch (error) {
       next(error);
     }
@@ -28,8 +18,8 @@ export class ProfessionalController {
     try {
       const userId = req.user!.id;
       const data = req.body;
-      const profile = await ProfessionalService.createOrUpdateProfile(userId, data);
-      res.json(ApiResponse.success(profile, "Professional profile updated"));
+      const result = await ProfessionalService.updateProfile(userId, data);
+      res.json(ApiResponse.success(result, result.message));
     } catch (error) {
       next(error);
     }
@@ -39,19 +29,21 @@ export class ProfessionalController {
     try {
       const page = Number(req.query.page || 1);
       const limit = Number(req.query.limit || 20);
-      const result = await ProfessionalService.getAllProfessionals(page, limit);
+      const search = req.query.q as string | undefined;
+      const category = req.query.category as string | undefined;
+
+      const result = await ProfessionalService.getAllProfessionals(page, limit, search, category);
       res.json(ApiResponse.success(result));
     } catch (error) {
       next(error);
     }
   }
 
-  static async verifyProfessional(req: Request, res: Response, next: NextFunction) {
+  static async getProfessionalProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId } = req.params;
-      const { isVerified } = req.body;
-      const profile = await ProfessionalService.verifyProfessional(userId, isVerified);
-      res.json(ApiResponse.success(profile, "Professional verification updated"));
+      const { id } = req.params;
+      const profile = await ProfessionalService.getProfessionalProfile(id);
+      res.json(ApiResponse.success(profile));
     } catch (error) {
       next(error);
     }
