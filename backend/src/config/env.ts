@@ -27,10 +27,18 @@ const envSchema = z.object({
   BKASH_APP_SECRET: z.string().optional(),
   BKASH_USERNAME: z.string().optional(),
   BKASH_PASSWORD: z.string().optional(),
-  BKASH_SANDBOX: z.string().optional(),
+  BKASH_REFRESH_TOKEN: z.string().optional(),
+  BKASH_BASE_URL: z.string().url().optional() || 'https://tokenized.sandbox.bka.sh/v1.2.0-beta',
+  BKASH_CALLBACK_URL: z.string().url().optional(),
+  SSL_STORE_ID: z.string().optional(),
+  SSL_STORE_PASSWORD: z.string().optional(),
+  SSL_BASE_URL: z.string().url().optional() || 'https://sandbox.sslcommerz.com',
+  SSL_CALLBACK_URL: z.string().url().optional(),
+  SSL_SANDBOX: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   BASE_URL: z.string().url().optional(),
+  GOOGLE_AI_API_KEY: z.string().optional(),
 });
 
 const envServer = envSchema.safeParse(process.env);

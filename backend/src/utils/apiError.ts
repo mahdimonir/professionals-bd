@@ -44,4 +44,8 @@ export class ApiError extends Error {
   static internal(message: string = "Internal server error") {
     return new ApiError(500, message, false);
   }
+
+  static paymentFailed(message: string = "Payment failed") {
+    return new ApiError(402, message, true);
+  }
 }
