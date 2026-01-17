@@ -48,33 +48,25 @@ app.use(
 );
 
 // CORS – Restrictive in production
-// CORS Configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL, // Production Main URL
+  process.env.FRONTEND_URL,
   "http://localhost:3000",
-  "http://localhost:3001",
   "http://localhost:5173",
+  "https://www.professionalsbd.com",
+  "https://professionalsbd.com",
 ].filter(Boolean) as string[];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, server-to-server, Postman)
       if (!origin) return callback(null, true);
-
-      // Check against allowed list
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-
-      // Allow Vercel Preview Deployments (e.g., https://project-git-branch-user.vercel.app)
-      // Regex matches: https:// + anything + .vercel.app
       const vercelPreviewPattern = /^https:\/\/.*\.vercel\.app$/;
       if (vercelPreviewPattern.test(origin)) {
         return callback(null, true);
       }
-
-      // Allow SSLCommerz
       if (origin.endsWith(".sslcommerz.com")) {
         return callback(null, true);
       }
@@ -96,26 +88,19 @@ app.use(
   })
 );
 
-// Body Parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Serve Swagger static assets (optional – you can use CDN instead)
 app.use(
   "/api-docs/static",
   express.static(path.join(process.cwd(), "node_modules/swagger-ui-dist"))
 );
-
-// Serve Invoice PDFs (Temp)
 app.use(
   "/api/v1/invoices",
   express.static(path.join(process.cwd(), "temp"))
 );
-
-// General API rate limiting
 app.use("/api/v1", apiLimiter);
 
-// Root Route
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "success",
