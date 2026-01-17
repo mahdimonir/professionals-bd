@@ -4,6 +4,5 @@ node_modules
 /src/generated/prisma
 uploads/
 dist/
-
-/src/jobs
+prisma/migrations
 
