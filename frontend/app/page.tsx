@@ -121,19 +121,6 @@ export default function HomePage() {
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">Accountant</span>
                 </a>
 
-                {/* Consultant */}
-                <a
-                  href="/professionals?cat=Consulting"
-                  className="group flex flex-col items-center gap-3 p-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl hover:border-primary-500 hover:shadow-xl hover:scale-105 transition-all duration-300"
-                >
-                  <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center group-hover:bg-primary-500 transition-colors">
-                    <svg className="w-7 h-7 text-purple-600 dark:text-purple-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">Consultant</span>
-                </a>
-
                 {/* Engineer */}
                 <a
                   href="/professionals?cat=Engineering"
