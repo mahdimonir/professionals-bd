@@ -18,6 +18,10 @@ export class UserService {
         return response.data;
     }
 
+    static async updateAvatar(avatarUrl: string) {
+        return this.updateProfile({ avatar: avatarUrl });
+    }
+
     static async searchUsers(query: string, params?: { role?: string; page?: number; limit?: number }) {
         const queryParams = new URLSearchParams();
         queryParams.append('q', query);

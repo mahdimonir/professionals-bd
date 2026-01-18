@@ -327,20 +327,18 @@ function ProfileContent() {
     }
     setEmailChanging(true);
     try {
-      const response = await fetch('/api/v1/auth/change-email/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword: emailPassword, newEmail }),
+      const response = await authService.changeEmailRequest({
+        currentPassword: emailPassword,
+        newEmail,
       });
-      const data = await response.json();
-      if (data.success) {
+      if (response.success) {
         setEmailChangeStep('verify');
         toast.success('Verification code sent to your new email!');
       } else {
-        toast.error(data.message || 'Failed to send verification code');
+        toast.error(response.message || 'Failed to send verification code');
       }
-    } catch (error) {
-      toast.error('Failed to request email change');
+    } catch (error:any) {
+      toast.error(error.response?.data?.message || 'Failed to request email change');
     } finally {
       setEmailChanging(false);
     }
@@ -353,20 +351,18 @@ function ProfileContent() {
     }
     setEmailChanging(true);
     try {
-      const response = await fetch('/api/v1/auth/change-email/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newEmail, otp: emailOtp }),
+      const response = await authService.changeEmailVerify({
+        newEmail,
+        otp: emailOtp,
       });
-      const data = await response.json();
-      if (data.success) {
+      if (response.success) {
         toast.success('Email updated successfully! Please log in again.');
         window.location.href = '/login';
       } else {
-        toast.error(data.message || 'Invalid verification code');
+        toast.error(response.message || 'Invalid verification code');
       }
-    } catch (error) {
-      toast.error('Failed to verify email change');
+    } catch (error:any) {
+      toast.error(error.response?.data?.message || 'Failed to verify email change');
     } finally {
       setEmailChanging(false);
     }
@@ -383,20 +379,18 @@ function ProfileContent() {
     }
     setPasswordChanging(true);
     try {
-      const response = await fetch('/api/v1/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
+      const response = await authService.changePassword({
+        currentPassword,
+        newPassword,
       });
-      const data = await response.json();
-      if (data.success) {
+      if (response.success) {
         toast.success('Password changed successfully! Please log in again.');
         window.location.href = '/login';
       } else {
-        toast.error(data.message || 'Failed to change password');
+        toast.error(response.message || 'Failed to change password');
       }
-    } catch (error) {
-      toast.error('Failed to change password');
+    } catch (error:any) {
+      toast.error(error.response?.data?.message || 'Failed to change password');
     } finally {
       setPasswordChanging(false);
     }

@@ -1,3 +1,4 @@
+import logger from "@/utils/logger.js";
 import { parseISO } from "date-fns";
 import { fromZonedTime } from 'date-fns-tz';
 import prisma from "../../config/client.js";
@@ -107,7 +108,9 @@ export class BookingService {
       end.toISOString(),
       price,
       "PENDING"
-    ).catch(() => { });
+    ).catch((error) => {
+      logger.error({ error }, "Failed to send booking confirmation email");
+    });
 
     return booking;
   }
@@ -225,7 +228,9 @@ export class BookingService {
       updated.id,
       "CANCELLED",
       reason
-    ).catch(() => { });
+    ).catch((error) => {
+      logger.error({ error }, "Failed to send booking status update (CANCELLED)");
+    });
 
     return updated;
   }
@@ -409,7 +414,9 @@ export class BookingService {
       updatedBooking.id,
       "RESCHEDULED",
       `New time: ${start.toLocaleString()} - ${end.toLocaleString()}`
-    ).catch(() => { });
+    ).catch((error) => {
+      logger.error({ error }, "Failed to send booking status update (RESCHEDULED)");
+    });
 
     return updatedBooking;
   }

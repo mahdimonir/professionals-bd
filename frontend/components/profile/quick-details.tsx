@@ -1,5 +1,6 @@
 import { AlertCircle, Briefcase, Calendar, CreditCard, LayoutDashboard, MessageSquare, Settings as SettingsIcon, Star, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { ProfileAvatar } from './profile-avatar';
 
 export type TabType = 'overview' | 'bookings' | 'billing' | 'reviews' | 'support' | 'info';
 
@@ -23,13 +24,7 @@ interface QuickDetailsProps {
 export function QuickDetailsCompact({ user, isProfessional }: QuickDetailsProps) {
   return (
     <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-      <div className="w-12 h-12 bg-gradient-to-tr from-primary-500 to-indigo-500 rounded-xl flex items-center justify-center text-white text-lg font-black shrink-0">
-        {user?.avatar ? (
-          <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
-        ) : (
-          user.name?.charAt(0)?.toUpperCase() || 'U'
-        )}
-      </div>
+      <ProfileAvatar user={user} size="sm" className="mb-0" />
       <div className="flex-1 min-w-0">
         <h2 className="font-bold text-slate-900 dark:text-white truncate">{user.name}</h2>
         <p className="text-xs text-slate-500 truncate">{user.email}</p>
@@ -53,18 +48,12 @@ export function QuickDetailsFull({
   hasPendingChanges 
 }: QuickDetailsProps) {
   const router = useRouter();
-  const isUser = user.role === 'USER'; // Assuming simple string check for now or import Role enum if needed, but props passed as boolean isProfessional handles one side.
+  const isUser = user.role === 'USER';
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 relative">
       <div className="text-center mb-6">
-        <div className="w-24 h-24 mx-auto bg-gradient-to-tr from-primary-500 to-indigo-500 rounded-2xl flex items-center justify-center text-white text-3xl font-black mb-4">
-          {user?.avatar ? (
-            <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover rounded-xl" />
-          ) : (
-            user.name?.charAt(0)?.toUpperCase() || 'U'
-          )}
-        </div>
+        <ProfileAvatar user={user} size="lg" />
         <h2 className="text-xl font-black text-slate-900 dark:text-white">{user.name}</h2>
         <p className="text-sm text-slate-500">{user.email}</p>
         <span className={`inline-flex items-center gap-1 mt-3 px-3 py-1 rounded-full text-xs font-bold uppercase ${

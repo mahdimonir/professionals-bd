@@ -2,13 +2,11 @@ import { ApiResponse, AuthResponse } from '../types';
 import { api } from './api';
 
 export const authService = {
-    // 1. Register: Initiate via email/password + phone
     async register(data: { name: string; email: string; password: string; phone: string }) {
         const response = await api.post<ApiResponse<any>>('/auth/register', data);
         return response.data;
     },
 
-    // 2. Verify: Complete registration with OTP
     async verify(data: { email: string; otp: string }) {
         const response = await api.post<ApiResponse<AuthResponse>>('/auth/register/verify', data);
         if (response.data.success) {
@@ -17,7 +15,6 @@ export const authService = {
         return response.data;
     },
 
-    // 3. Login: Direct login (forverified users only)
     async login(data: { email: string; password: string }) {
         const response = await api.post<ApiResponse<AuthResponse>>('/auth/login', data);
         if (response.data.success) {
@@ -26,7 +23,6 @@ export const authService = {
         return response.data;
     },
 
-    // 4. Logout
     async logout() {
         try {
             const refreshToken = localStorage.getItem('refreshToken');
@@ -38,7 +34,6 @@ export const authService = {
         }
     },
 
-    // 5. Get Current User Profile (for session checks)
     async getProfile() {
         const response = await api.get<ApiResponse<any>>('/users/me');
         if (response.data.success) {
@@ -51,7 +46,6 @@ export const authService = {
         return response.data;
     },
 
-    // 5.1 Update User Profile
     async updateProfile(data: any) {
         const response = await api.patch<ApiResponse<any>>('/users/me', data);
         if (response.data.success) {
@@ -64,13 +58,11 @@ export const authService = {
         return response.data;
     },
 
-    // 5.2 Update Professional Profile
     async updateProfessionalProfile(data: any) {
         const response = await api.patch<ApiResponse<any>>('/professionals/me', data);
         return response.data;
     },
 
-    // 6. Session Helpers
     saveSession(data: AuthResponse) {
         if (typeof window === 'undefined') return;
         localStorage.setItem('accessToken', data.accessToken);
@@ -104,20 +96,23 @@ export const authService = {
             return JSON.parse(userStr);
         } catch (error) {
             console.error('Error parsing session:', error);
-            // Auto-clean corrupt data
             localStorage.removeItem('probd_user');
             return null;
         }
     },
 
-    // 7. Role Switching (Client-side simulation for now)
-    async switchRole(role: any) {
-        const user = this.getSession();
-        if (user) {
-            user.role = role;
-            this.saveUser(user);
-            return user;
-        }
-        return null;
-    }
+    async changeEmailRequest(data: { currentPassword: string; newEmail: string }) {
+        const response = await api.post<ApiResponse<any>>('/auth/change-email/request', data);
+        return response.data;
+    },
+
+    async changeEmailVerify(data: { newEmail: string; otp: string }) {
+        const response = await api.post<ApiResponse<any>>('/auth/change-email/verify', data);
+        return response.data;
+    },
+
+    async changePassword(data: { currentPassword: string; newPassword: string }) {
+        const response = await api.post<ApiResponse<any>>('/auth/change-password', data);
+        return response.data;
+    },
 };

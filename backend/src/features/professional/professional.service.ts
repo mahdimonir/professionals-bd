@@ -1,5 +1,6 @@
 import { ApplicationStatus } from "@prisma/client";
 import prisma from "../../config/client.js";
+import { emailService } from "../../services/email.service.js";
 import { ApiError } from "../../utils/apiError.js";
 import { deleteFromCloudinary, getPublicIdFromUrl } from "../../utils/cloudinary.utils.js";
 
@@ -65,6 +66,12 @@ export class ProfessionalService {
         status: ApplicationStatus.PENDING,
       },
     });
+
+    // Notify user
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (user?.email) {
+      await emailService.sendProfessionalApplicationReceived(user.email, user.name || "User");
+    }
 
     return profile;
   }

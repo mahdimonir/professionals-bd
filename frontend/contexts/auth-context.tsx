@@ -14,6 +14,7 @@ interface AuthContextType {
   verifyEmail: (data: { email: string; otp: string }) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<void>;
+  refreshSession: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -132,11 +133,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setUser(null), 100);
   };
 
-  const switchRole = async (role: Role) => {
-    const updatedUser = await authService.switchRole(role);
-    setUser(updatedUser);
-  };
-
   const refreshSession = () => {
     const session = authService.getSession();
     setUser(session);
@@ -152,6 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifyEmail,
         logout,
         checkAuth,
+        refreshSession,
       }}
     >
       {children}
@@ -172,6 +169,7 @@ export function useAuth() {
       verifyEmail: async () => {},
       logout: () => {},
       checkAuth: async () => {},
+      refreshSession: () => {},
     };
   }
   

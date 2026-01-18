@@ -321,6 +321,7 @@ model Dispute {
 
 enum AuditAction {
   USER_BAN
+  USER_UNBAN
   REFUND_APPROVE
   DISPUTE_RESOLVE
   WITHDRAW_APPROVE

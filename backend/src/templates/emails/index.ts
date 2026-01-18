@@ -1,3 +1,4 @@
+import { accountStatusUpdate, professionalStatusUpdate, withdrawStatusUpdate } from "./admin.template.js";
 import { passwordResetOTP, registrationOTP } from "./auth.template.js";
 import { emailBaseTemplate } from "./base.template.js";
 import { bookingConfirmation, bookingStatusUpdate } from "./booking.template.js";
@@ -10,8 +11,10 @@ import {
 
 
 import { invoiceEmail } from "./invoice.template.js";
+import { professionalApplicationReceived } from "./professional.template.js";
 
 export {
+    accountStatusUpdate,
     bookingConfirmation,
     bookingStatusUpdate,
     disputeNotificationUser,
@@ -21,6 +24,9 @@ export {
     emailBaseTemplate,
     invoiceEmail,
     passwordResetOTP,
-    registrationOTP
+    professionalApplicationReceived,
+    professionalStatusUpdate,
+    registrationOTP,
+    withdrawStatusUpdate
 };
 

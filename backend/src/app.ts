@@ -56,35 +56,57 @@ const allowedOrigins = [
   "https://professionalsbd.com",
 ].filter(Boolean) as string[];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      const vercelPreviewPattern = /^https:\/\/.*\.vercel\.app$/;
-      if (vercelPreviewPattern.test(origin)) {
-        return callback(null, true);
-      }
-      if (origin.endsWith(".sslcommerz.com")) {
-        return callback(null, true);
-      }
+const corsOptions = {
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+  ],
+  exposedHeaders: ["Content-Length", "X-Request-Id"],
+  maxAge: 600,
+  credentials: true,
+};
 
-      console.warn(`[CORS] Blocked Origin: ${origin}`);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-    ],
-    exposedHeaders: ["Content-Length", "X-Request-Id"],
-    maxAge: 600,
+app.use(
+  cors((req, callback) => {
+    const origin = req.header("Origin");
+
+    // Always allow payment callbacks (SSLCommerz POSTs from browser with varying origins)
+    if (req.path && req.path.includes("/payments/sslcommerz")) {
+      return callback(null, { ...corsOptions, origin: true });
+    }
+
+    // Allow requests with no origin (like mobile apps, curl, or standard browser navigations)
+    if (!origin) {
+      return callback(null, { ...corsOptions, origin: true });
+    }
+
+    // Check Allowed Origins
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, { ...corsOptions, origin: true });
+    }
+
+    // Check Vercel Preview
+    const vercelPreviewPattern = /^https:\/\/.*\.vercel\.app$/;
+    if (vercelPreviewPattern.test(origin)) {
+      return callback(null, { ...corsOptions, origin: true });
+    }
+
+    // Check SSLCommerz Domain
+    if (origin.endsWith(".sslcommerz.com")) {
+      return callback(null, { ...corsOptions, origin: true });
+    }
+
+    // Check "null" origin (often from redirects or sandboxed iframes)
+    if (origin === "null") {
+      return callback(null, { ...corsOptions, origin: true });
+    }
+
+    console.warn(`[CORS] Blocked Origin: ${origin}`);
+    return callback(new Error("Not allowed by CORS"));
   })
 );
 

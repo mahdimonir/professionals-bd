@@ -138,32 +138,7 @@ export function PersonalInfoTab({
       <div className="space-y-4">
         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Basic Information</h4>
         <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Avatar</label>
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden border border-slate-200 dark:border-slate-700 relative">
-                {formData.avatar ? (
-                  <img src={formData.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <UserIcon className="w-8 h-8 text-slate-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                )}
-              </div>
-              {isEditing && (
-                <div className="relative">
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0], 'avatar')}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        disabled={uploading === 'avatar-'}
-                    />
-                    <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50">
-                        {uploading === 'avatar-' ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Change Photo'}
-                    </button>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Avatar section moved to QuickDetails */}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
@@ -191,6 +166,17 @@ export function PersonalInfoTab({
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             </div>
           </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bio</label>
+              <textarea
+                disabled={!isEditing}
+                rows={3}
+                placeholder="Tell us about yourself..."
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm disabled:opacity-60 resize-none"
+                value={formData.bio}
+                onChange={e => setFormData({ ...formData, bio: e.target.value })}
+              />
+            </div>
         </div>
       </div>
 
@@ -338,17 +324,6 @@ export function PersonalInfoTab({
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm disabled:opacity-60"
                 value={formData.title}
                 onChange={e => setFormData({ ...formData, title: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bio</label>
-              <textarea
-                disabled={!isEditing}
-                rows={3}
-                placeholder="Tell us about yourself..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm disabled:opacity-60 resize-none"
-                value={formData.bio}
-                onChange={e => setFormData({ ...formData, bio: e.target.value })}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">

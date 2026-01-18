@@ -1,14 +1,6 @@
 import axios from 'axios';
 import { api } from './api';
 
-interface CloudinarySignatureResponse {
-    signature: string;
-    timestamp: number;
-    cloudName: string;
-    apiKey: string;
-    folder: string;
-}
-
 interface CloudinaryUploadResult {
     secure_url: string;
     public_id: string;
@@ -25,11 +17,13 @@ export const CloudinaryService = {
     async uploadFile(file: File, folder: string): Promise<CloudinaryUploadResult> {
         try {
             // 1. Get Signature from Backend
-            const signatureRes = await api.post<CloudinarySignatureResponse>('/media/signature', {
+            const signatureRes = await api.post('/media/signature', {
                 folder,
             });
 
-            const { signature, timestamp, cloudName, apiKey } = signatureRes.data;
+            // The backend returns { success: true, data: { ...fields } }
+            // So signatureRes.data is the full object, and we need to access signatureRes.data.data
+            const { signature, timestamp, cloudName, apiKey, folder: signedFolder } = signatureRes.data.data;
 
             // 2. Prepare FormData
             const formData = new FormData();
@@ -37,7 +31,7 @@ export const CloudinaryService = {
             formData.append('api_key', apiKey);
             formData.append('timestamp', timestamp.toString());
             formData.append('signature', signature);
-            formData.append('folder', folder);
+            formData.append('folder', signedFolder);
 
             // 3. Upload to Cloudinary
             const uploadRes = await axios.post<CloudinaryUploadResult>(
