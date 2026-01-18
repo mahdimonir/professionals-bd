@@ -8,13 +8,12 @@ export class MediaController {
   static getUploadSignature(req: Request, res: Response, next: NextFunction) {
     try {
       const timestamp = Math.round(Date.now() / 1000);
-      const folder = "professionals-bd"; // Fixed folder from preset
+      const folder = req.body.folder || "professionals-bd";
 
       const signature = cloudinary.utils.api_sign_request(
         {
           timestamp,
           folder,
-          upload_preset: "professionalsbd_signed",
         },
         env.CLOUDINARY_API_SECRET!
       );
@@ -26,7 +25,6 @@ export class MediaController {
           cloudName: env.CLOUDINARY_CLOUD_NAME,
           apiKey: env.CLOUDINARY_API_KEY,
           folder,
-          uploadPreset: "professionalsbd_signed",
         })
       );
     } catch (error) {

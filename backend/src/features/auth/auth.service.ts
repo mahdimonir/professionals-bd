@@ -69,6 +69,7 @@ export class AuthService {
   }
 
   static async register(data: { name: string; email: string; password: string; phone?: string }) {
+    logger.info(`[AuthService] Register called for: ${data.email}`);
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
     if (existingUser) {
       throw new ApiError(400, "Email already registered");
@@ -84,7 +85,12 @@ export class AuthService {
       tempData: { name: data.name, passwordHash, phone: data.phone },
     });
 
-    await emailService.sendRegistrationOTP(data.email, data.name, otp);
+    const mailSent = await emailService.sendRegistrationOTP(data.email, data.name, otp);
+    if (!mailSent) {
+      // Clean up the OTP if email fails, so user can try again immediately without waiting or hitting limits purely due to system error
+      await prisma.oTP.deleteMany({ where: { email: data.email, type: "REGISTRATION" } });
+      throw new ApiError(500, "Failed to send verification email. Please try again later.");
+    }
 
     logger.info(`Registration OTP sent for email: ${data.email}`);
     return { message: "Verification code sent to your email" };
@@ -151,6 +157,7 @@ export class AuthService {
   }
 
   static async resendRegistrationOTP(email: string) {
+    logger.info(`[AuthService] Resend Registration OTP called for: ${email}`);
     const otpRecord = await prisma.oTP.findUnique({
       where: { email_type: { email, type: "REGISTRATION" } },
     });
@@ -177,7 +184,10 @@ export class AuthService {
       },
     });
 
-    await emailService.sendRegistrationOTP(email, otpRecord.tempName || "User", newOTP);
+    const mailSent = await emailService.sendRegistrationOTP(email, otpRecord.tempName || "User", newOTP);
+    if (!mailSent) {
+      throw new ApiError(500, "Failed to send verification email. Please try again later.");
+    }
     return { message: "New verification code sent" };
   }
 
@@ -221,6 +231,7 @@ export class AuthService {
   }
 
   static async sendPasswordResetOTP(email: string) {
+    logger.info(`[AuthService] Send Password Reset OTP called for: ${email}`);
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.passwordHash) {
       // Don't reveal existence
@@ -230,7 +241,10 @@ export class AuthService {
     const otp = generateOTP();
     await this.createOrUpdateOTP({ email, type: "PASSWORD_RESET", code: otp });
 
-    await emailService.sendPasswordResetOTP(email, user.name || "User", otp);
+    const mailSent = await emailService.sendPasswordResetOTP(email, user.name || "User", otp);
+    if (!mailSent) {
+      throw new ApiError(500, "Failed to send reset email. Please try again later.");
+    }
     return { message: "If account exists, reset code has been sent" };
   }
 

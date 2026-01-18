@@ -13,6 +13,11 @@ export default function ContactPage() {
     message: ''
   });
 
+  let contactInfo = {
+    email: 'contact.professionalsbd@gmail.com',
+    phone: '+880 1805-543685',
+    address: 'Subashati Syed Center, Chawkbazar, Chattogram, Bangladesh'
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -39,29 +44,47 @@ export default function ContactPage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 mb-16">
-            <div className="glass rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center">
-              <div className="w-14 h-14 bg-primary-600/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-6 h-6 text-primary-600" />
-              </div>
-              <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide mb-2">Email Us</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">support@professionalsbd.com</p>
-            </div>
-
-            <div className="glass rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center">
-              <div className="w-14 h-14 bg-primary-600/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Phone className="w-6 h-6 text-primary-600" />
-              </div>
-              <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide mb-2">Call Us</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">+880 1711-044975</p>
-            </div>
-
-            <div className="glass rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center">
-              <div className="w-14 h-14 bg-primary-600/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-6 h-6 text-primary-600" />
-              </div>
-              <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide mb-2">Location</h3>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">Dhaka, Bangladesh</p>
-            </div>
+            {[
+              {
+                icon: Mail,
+                title: "Email Us",
+                content: contactInfo.email,
+                href: `mailto:${contactInfo.email}`,
+              },
+              {
+                icon: Phone,
+                title: "Call Us",
+                content: contactInfo.phone,
+                href: `tel:${contactInfo.phone}`,
+              },
+              {
+                icon: MapPin,
+                title: "Location",
+                content: contactInfo.address,
+                href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                  contactInfo.address
+                )}`,
+                target: "_blank",
+              },
+            ].map((item, index) => (
+              <a
+                key={index}
+                href={item.href}
+                target={item.target}
+                rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                className="glass rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center hover:border-primary-500/50 transition-all cursor-pointer group block"
+              >
+                <div className="w-14 h-14 bg-primary-600/10 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <item.icon className="w-6 h-6 text-primary-600" />
+                </div>
+                <h3 className="font-black text-slate-900 dark:text-white text-sm uppercase tracking-wide mb-2">
+                  {item.title}
+                </h3>
+                <p className="text-slate-600 dark:text-slate-400 text-sm">
+                  {item.content}
+                </p>
+              </a>
+            ))}
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-12">
@@ -79,6 +102,7 @@ export default function ContactPage() {
                   <input
                     type="text"
                     required
+                    placeholder='Enter your name'
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 transition-colors"
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
@@ -89,6 +113,7 @@ export default function ContactPage() {
                   <input
                     type="email"
                     required
+                    placeholder='Enter your email'
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 transition-colors"
                     value={formData.email}
                     onChange={e => setFormData({...formData, email: e.target.value})}
@@ -101,6 +126,7 @@ export default function ContactPage() {
                 <input
                   type="text"
                   required
+                  placeholder='Enter your subject'
                   className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 transition-colors"
                   value={formData.subject}
                   onChange={e => setFormData({...formData, subject: e.target.value})}
@@ -111,6 +137,7 @@ export default function ContactPage() {
                 <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Message</label>
                 <textarea
                   required
+                  placeholder='Enter your message'
                   rows={6}
                   className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary-500 transition-colors resize-none"
                   value={formData.message}

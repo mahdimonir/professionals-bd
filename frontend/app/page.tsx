@@ -1,6 +1,7 @@
 'use client';
 
 import ExpertCard from '@/components/ui/expert-card';
+import Footer from '@/components/ui/footer';
 import Navbar from '@/components/ui/navbar';
 import { TESTIMONIALS } from '@/lib/constants';
 import { ProfessionalService } from '@/lib/services/professional-service';
@@ -25,14 +26,15 @@ export default function HomePage() {
         // Map API response to ExpertCard format
         const mapped = response.professionals.map((prof: any) => ({
           id: prof.id,
+          userId: prof.userId,
           name: prof.user?.name || 'Professional',
           avatar: prof.user?.avatar || '/default-avatar.png',
           category: prof.category || 'Professional',
           specialties: prof.specialties || [],
           experience: prof.experience || 0,
           sessionPrice: prof.sessionPrice || 0,
-          rating: 4.8, // prof.rating || 4.8
-          reviewCount: 0, // prof.reviewCount || 0
+          rating: prof.rating || 4.8,
+          reviewCount: prof.reviewCount || 0,
           availabilityStatus: prof.status === 'APPROVED' ? 'Available Now' : 'Offline',
           isVerified: prof.status === 'APPROVED'
         }));
@@ -81,7 +83,7 @@ export default function HomePage() {
             <div className="max-w-5xl mx-auto w-full px-4 mt-12">
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6">Popular Services</p>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mx-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {/* Lawyer */}
                 <a
                   href="/professionals?cat=Legal"
@@ -119,6 +121,19 @@ export default function HomePage() {
                     </svg>
                   </div>
                   <span className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">Accountant</span>
+                </a>
+
+                {/* Marketer */}
+                <a
+                  href="/professionals?cat=Marketing"
+                  className="group flex flex-col items-center gap-3 p-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl hover:border-primary-500 hover:shadow-xl hover:scale-105 transition-all duration-300"
+                >
+                  <div className="w-14 h-14 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center group-hover:bg-primary-500 transition-colors">
+                    <svg className="w-7 h-7 text-pink-600 dark:text-pink-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                    </svg>
+                  </div>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300 text-center">Marketer</span>
                 </a>
 
                 {/* Engineer */}
@@ -189,7 +204,7 @@ export default function HomePage() {
                 ))
               ) : featuredProfessionals.length > 0 ? (
                 featuredProfessionals.map(expert => (
-                  <ExpertCard key={expert.id} expert={expert} />
+                  <ExpertCard key={expert.userId} expert={expert} />
                 ))
               ) : (
                 <div className="col-span-3 text-center py-12">
@@ -295,37 +310,7 @@ export default function HomePage() {
         </section>
 
         {/* Footer */}
-        <footer className="py-24 border-t border-slate-200 dark:border-slate-900 bg-slate-50 dark:bg-slate-950">
-          <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-16">
-            <div className="space-y-6 text-left">
-              <Link href="/" className="flex items-center gap-2">
-                <Shield className="w-8 h-8 text-primary-600" />
-                <span className="font-black text-slate-900 dark:text-white text-2xl tracking-tighter">ProfessionalsBD</span>
-              </Link>
-              <p className="text-sm text-slate-500 leading-relaxed font-medium">
-                The high-trust expert network platform for the Bangladeshi digital economy.
-              </p>
-            </div>
-            {['Network', 'Platform', 'Legal'].map((group, idx) => (
-              <div key={idx} className="text-left">
-                <h4 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mb-8">{group}</h4>
-                <ul className="space-y-4">
-                  <li><Link href="/professionals" className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-primary-600 transition-colors">Find Experts</Link></li>
-                  <li><Link href="/about" className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-primary-600 transition-colors">How it Works</Link></li>
-                  <li><Link href="/contact" className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-primary-600 transition-colors">Corporate Support</Link></li>
-                  <li><Link href="/terms" className="text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-primary-600 transition-colors">Legal Terms</Link></li>
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="max-w-7xl mx-auto px-4 mt-24 pt-12 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-8">
-            <p className="text-[10px] text-slate-500 uppercase font-black tracking-[0.3em]">© 2026 ProfessionalsBD Network. Dhaka Hub.</p>
-            <div className="flex gap-8">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Secure TLS 1.3</span>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ISO 27001 Certified</span>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </div>
   );

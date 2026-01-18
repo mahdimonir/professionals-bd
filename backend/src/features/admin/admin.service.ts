@@ -183,7 +183,13 @@ export class AdminService {
     }
 
     static async banUser(userId: string, reason: string, adminId: string) {
-        // Implementation needed
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { isVerified: false, role: "USER" }
+        });
+
+        await emailService.sendAccountStatusUpdate(user.email, user.name || "User", "BANNED", reason);
+
         await prisma.auditLog.create({
             data: {
                 action: "USER_BAN",
@@ -196,10 +202,16 @@ export class AdminService {
     }
 
     static async unbanUser(userId: string, adminId: string) {
-        // Implementation needed
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { isVerified: true, role: "USER" }
+        });
+
+        await emailService.sendAccountStatusUpdate(user.email, user.name || "User", "ACTIVE", "Your account has been unbanned.");
+
         await prisma.auditLog.create({
             data: {
-                action: "USER_BAN",
+                action: "USER_UNBAN",
                 performedBy: adminId,
                 targetId: userId,
                 details: { action: "UNBAN" },
@@ -340,6 +352,7 @@ export class AdminService {
         const updatedProfile = await prisma.professionalProfile.update({
             where: { userId },
             data: updateData,
+            include: { user: true },
         });
 
         // Create audit log
@@ -356,6 +369,16 @@ export class AdminService {
                 },
             },
         });
+
+        // Notify professional
+        if (updatedProfile.user?.email) {
+            await emailService.sendProfessionalStatusUpdate(
+                updatedProfile.user.email,
+                updatedProfile.user.name || "User",
+                isVerified ? "VERIFIED" : "REJECTED",
+                isVerified ? undefined : "Verification failed"
+            );
+        }
 
         return updatedProfile;
     }
@@ -393,6 +416,16 @@ export class AdminService {
             },
         });
 
+        // Notify professional
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user?.email) {
+            await emailService.sendProfessionalStatusUpdate(
+                user.email,
+                user.name || "User",
+                "APPROVED"
+            );
+        }
+
         return updatedProfile;
     }
 
@@ -414,6 +447,17 @@ export class AdminService {
                 details: { reason, status: "REJECTED" },
             },
         });
+
+        // Notify professional
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (user?.email) {
+            await emailService.sendProfessionalStatusUpdate(
+                user.email,
+                user.name || "User",
+                "REJECTED",
+                reason
+            );
+        }
 
         return updatedProfile;
     }
@@ -577,6 +621,15 @@ export class AdminService {
             },
         });
 
+        if (withdraw.professional.email) {
+            await emailService.sendWithdrawStatusUpdate(
+                withdraw.professional.email,
+                withdraw.professional.name || "Professional",
+                withdraw.amount.toNumber(),
+                "PROCESSED"
+            );
+        }
+
         return { success: true, message: "Withdraw approved" };
     }
 
@@ -616,6 +669,22 @@ export class AdminService {
                 },
             },
         });
+
+        // We need professional details for email
+        const withdrawWithPro = await prisma.withdrawRequest.findUnique({
+            where: { id: withdrawId },
+            include: { professional: true }
+        });
+
+        if (withdrawWithPro?.professional.email) {
+            await emailService.sendWithdrawStatusUpdate(
+                withdrawWithPro.professional.email,
+                withdrawWithPro.professional.name || "Professional",
+                withdrawWithPro.amount.toNumber(),
+                "REJECTED",
+                reason
+            );
+        }
 
         return { success: true, message: "Withdraw rejected", reason };
     }

@@ -10,11 +10,11 @@ import {
   LogOut,
   Menu,
   Moon,
-  Shield,
   Sun,
   UserCircle,
   X
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -59,8 +59,15 @@ export default function Navbar({ isScrolled: propScrolled }: NavbarProps) {
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center gap-12 shrink-0">
             <Link href="/" className="flex items-center gap-2 group">
-              <div className="bg-primary-600 p-2 rounded-xl group-hover:bg-primary-500 transition-all shadow-lg shadow-primary-600/20 group-hover:rotate-6">
-                <Shield className="w-6 h-6 text-white" />
+              <div className="group-hover:scale-110 transition-transform duration-300">
+                <Image 
+                  src="/ProBD-Logo.png" 
+                  alt="ProfessionalsBD Logo" 
+                  width={150} 
+                  height={150} 
+                  className="w-6 h-6 object-contain"
+                  priority
+                />
               </div>
               <span className={`text-xl font-black tracking-tight transition-colors ${textClass}`}>
                 Professionals<span className="text-primary-600">BD</span>

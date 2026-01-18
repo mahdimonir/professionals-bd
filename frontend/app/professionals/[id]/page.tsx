@@ -91,7 +91,15 @@ export default function ProfessionalProfilePage() {
 
     try {
         setProcessingMethod('BOOKING');
-        const startDateTime = new Date(`${selectedDate}T${selectedTime}`);
+        
+        // TimeSlotPicker returns full ISO string for the selected slot
+        const startDateTime = new Date(selectedTime);
+        
+        if (isNaN(startDateTime.getTime())) {
+            toast.error("Invalid date or time selected");
+            return;
+        }
+
         const endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // 1 hour
 
         const res = await BookingService.createBooking({
@@ -110,7 +118,8 @@ export default function ProfessionalProfilePage() {
         }
 
     } catch (error: any) {
-        toast.error(error.response?.data?.message || "Failed to create booking");
+        console.error("Booking creation error:", error);
+        toast.error(error.response?.data?.message || error.message || "Failed to create booking");
     } finally {
         setProcessingMethod(null);
     }

@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
 import {
+  accountStatusUpdate,
   bookingConfirmation,
   bookingStatusUpdate,
   disputeNotificationUser,
@@ -9,7 +10,10 @@ import {
   disputeResolvedProfessional,
   invoiceEmail,
   passwordResetOTP,
-  registrationOTP
+  professionalApplicationReceived,
+  professionalStatusUpdate,
+  registrationOTP,
+  withdrawStatusUpdate
 } from "../templates/emails/index.js";
 import logger from "../utils/logger.js";
 
@@ -17,19 +21,37 @@ class EmailService {
   private transporter: nodemailer.Transporter | null = null;
 
   constructor() {
-    if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
+    // Sanitize credentials (remove quotes and spaces from app password)
+    const smtpUser = env.SMTP_USER?.replace(/['"]/g, '').trim();
+    const smtpPass = env.SMTP_PASS?.replace(/['"\s]/g, '').trim();
+
+    logger.info(`Initializing Email Service with Host: ${env.SMTP_HOST}, Port: ${env.SMTP_PORT}, User: ${smtpUser ? 'SET' : 'NOT SET'}`);
+
+    if (env.SMTP_HOST && smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
         host: env.SMTP_HOST,
         port: Number(env.SMTP_PORT) || 587,
         secure: Number(env.SMTP_PORT) === 465,
         auth: {
-          user: env.SMTP_USER,
-          pass: env.SMTP_PASS,
+          user: smtpUser,
+          pass: smtpPass,
         },
         ...(env.SMTP_SERVICE && { service: env.SMTP_SERVICE }),
+        debug: true, // Show detailed debug info
+        logger: true // Log information to console
       });
+
+      // Verify connection configuration
+      this.transporter.verify((error, success) => {
+        if (error) {
+          logger.error({ error }, "❌ SMTP Connection Verification Failed");
+        } else {
+          logger.info("✅ SMTP Server Connection Verified Successfully");
+        }
+      });
+
     } else {
-      logger.warn("SMTP not configured – emails will be skipped");
+      logger.warn(`SMTP not configured correctly. Host: ${!!env.SMTP_HOST}, User: ${!!smtpUser}, Pass: ${!!smtpPass}`);
     }
   }
 
@@ -39,17 +61,23 @@ class EmailService {
       return false;
     }
 
+    const smtpUser = env.SMTP_USER?.replace(/['"]/g, '').trim();
+
     try {
-      const info = await this.transporter.sendMail({
-        from: `"Professionals BD" <${env.SMTP_USER}>`,
+      const mailOptions = {
+        from: `"Professionals BD" <${smtpUser}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
-      });
-      logger.info(`Email sent: ${info.messageId} → ${options.to}`);
+      };
+
+      logger.info(`Attempting to send email. From: ${mailOptions.from}, To: ${mailOptions.to}, Subject: ${mailOptions.subject}`);
+
+      const info = await this.transporter.sendMail(mailOptions);
+      logger.info(`Email sent successfully: ${info.messageId} → ${options.to}`);
       return true;
     } catch (error) {
-      logger.error({ error, to: options.to }, "Failed to send email");
+      logger.error({ error, to: options.to, from: smtpUser }, "Failed to send email - Detailed Error");
       return false;
     }
   }
@@ -210,6 +238,43 @@ class EmailService {
       to: professionalEmail,
       subject: `Dispute Update - Professionals BD`,
       html,
+    });
+  }
+
+  // Admin / Status Updates
+  async sendAccountStatusUpdate(email: string, name: string, status: "BANNED" | "ACTIVE", reason?: string) {
+    const html = accountStatusUpdate(name, status, reason);
+    return this.send({
+      to: email,
+      subject: `Account Status Update - Professionals BD`,
+      html
+    });
+  }
+
+  async sendProfessionalStatusUpdate(email: string, name: string, status: "VERIFIED" | "APPROVED" | "REJECTED", reason?: string) {
+    const html = professionalStatusUpdate(name, status, reason);
+    return this.send({
+      to: email,
+      subject: `Professional Profile Update - Professionals BD`,
+      html
+    });
+  }
+
+  async sendProfessionalApplicationReceived(email: string, name: string) {
+    const html = professionalApplicationReceived(name);
+    return this.send({
+      to: email,
+      subject: "Application Received - Professionals BD",
+      html
+    });
+  }
+
+  async sendWithdrawStatusUpdate(email: string, name: string, amount: number, status: "PROCESSED" | "REJECTED", reason?: string) {
+    const html = withdrawStatusUpdate(name, amount, status, reason);
+    return this.send({
+      to: email,
+      subject: `Withdrawal Request Update - Professionals BD`,
+      html
     });
   }
 }
