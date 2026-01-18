@@ -47,6 +47,8 @@ app.use(
   })
 );
 
+app.use(express.static(path.join(process.cwd(), 'public')));
+
 // CORS – Restrictive in production
 const allowedOrigins = [
   process.env.FRONTEND_URL,
