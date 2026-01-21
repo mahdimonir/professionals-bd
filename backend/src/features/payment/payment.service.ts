@@ -281,7 +281,7 @@ export class PaymentService {
 
         return {
             paymentUrl: result.GatewayPageURL,
-            transactionId: result.tran_id,
+            transactionId: uniqueTranId, // Use the one we generated to ensure it matches DB
         };
     }
 
@@ -300,15 +300,29 @@ export class PaymentService {
         if (method === "BKASH") {
             transactionId = payload.paymentID || payload.merchantInvoiceNumber;
             status = payload.status === "Completed" ? PaymentStatus.PAID : PaymentStatus.FAILED;
-        } else {
+        } else { // SSL_COMMERZ
             transactionId = payload.tran_id;
-            status = payload.status === "VALID" ? PaymentStatus.PAID : PaymentStatus.FAILED;
+            // Relaxed validation: SSLCommerz 'VALID' is standard, but some sandboxes use 'SUCCESS' or others.
+            // Log payload status for debugging
+            console.log(`Payment Webhook [${method}]: Payload Status = ${payload.status}`);
+            const s = payload.status;
+            status = (s === "VALID" || s === "SUCCESS" || s === "VALIDATED") ? PaymentStatus.PAID : PaymentStatus.FAILED;
         }
 
-        const payment = await prisma.payment.findFirst({
+        let payment = await prisma.payment.findFirst({
             where: { transactionId },
             include: { booking: true }
         });
+
+        // Fallback: If not found by transactionId, try to find by Booking ID (extract from tran_id)
+        if (!payment && method === "SSL_COMMERZ" && transactionId.includes("_")) {
+            const possibleBookingId = transactionId.split("_")[0];
+            console.warn(`Payment not found by Transaction ID. Trying Booking ID: ${possibleBookingId}`);
+            payment = await prisma.payment.findFirst({
+                where: { bookingId: possibleBookingId },
+                include: { booking: true }
+            });
+        }
 
         if (!payment) return null;
 
@@ -324,22 +338,54 @@ export class PaymentService {
                 data: { status: BookingStatus.PAID },
             });
 
-            const { generateInvoicePDF } = await import("./invoice.generator.js");
-            const invoiceUrl = await generateInvoicePDF(payment.id);
+            try {
+                const { generateInvoicePDF } = await import("./invoice.generator.js");
+                const invoiceUrl = await generateInvoicePDF(payment.id);
 
-            const booking = await prisma.booking.findUnique({
-                where: { id: payment.bookingId },
-                include: { user: { select: { name: true, email: true } } },
-            });
+                const booking = await prisma.booking.findUnique({
+                    where: { id: payment.bookingId },
+                    include: {
+                        user: { select: { name: true, email: true } },
+                        professional: { select: { name: true, email: true } }
+                    },
+                });
 
-            if (booking?.user.email) {
-                await emailService.sendInvoice(
-                    booking.user.email,
-                    booking.user.name || "User",
-                    invoiceUrl,
-                    payment.amount.toNumber(),
-                    payment.bookingId
-                );
+                if (booking) {
+                    console.log(`[Payment] Invoice URL generated: ${invoiceUrl}`);
+                    // 1. Send User Confirmation + Invoice
+                    if (booking.user.email) {
+                        await emailService.sendBookingConfirmation(
+                            booking.user.email,
+                            booking.user.name || "User",
+                            booking.professional.name || "Professional",
+                            booking.id,
+                            new Date(booking.startTime).toISOString(),
+                            new Date(booking.endTime).toISOString(),
+                            payment.amount.toNumber(),
+                            "PAID",
+                            invoiceUrl
+                        ).catch((error) => {
+                            console.error("Failed to send booking confirmation email to user", error);
+                        });
+                    }
+
+                    // 2. Send Professional Notification
+                    if (booking.professional.email) {
+                        await emailService.sendNewBookingNotification(
+                            booking.professional.email,
+                            booking.professional.name || "Professional",
+                            booking.user.name || "Client",
+                            booking.id,
+                            new Date(booking.startTime).toISOString(),
+                            new Date(booking.endTime).toISOString(),
+                            payment.amount.toNumber()
+                        ).catch((error) => {
+                            console.error("Failed to send booking notification email to professional", error);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Error in post-payment processing (invoice/email):", error);
             }
         }
 

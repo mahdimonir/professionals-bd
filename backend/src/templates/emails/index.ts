@@ -1,7 +1,7 @@
 import { accountStatusUpdate, professionalStatusUpdate, withdrawStatusUpdate } from "./admin.template.js";
 import { passwordResetOTP, registrationOTP } from "./auth.template.js";
 import { emailBaseTemplate } from "./base.template.js";
-import { bookingConfirmation, bookingStatusUpdate } from "./booking.template.js";
+import { bookingConfirmation, bookingStatusUpdate, newBookingNotification } from "./booking.template.js";
 import {
     disputeNotificationUser,
     disputeRaisedAdmin,
@@ -16,14 +16,12 @@ import { professionalApplicationReceived } from "./professional.template.js";
 export {
     accountStatusUpdate,
     bookingConfirmation,
-    bookingStatusUpdate,
-    disputeNotificationUser,
+    bookingStatusUpdate, disputeNotificationUser,
     disputeRaisedAdmin,
     disputeResolved,
     disputeResolvedProfessional,
     emailBaseTemplate,
-    invoiceEmail,
-    passwordResetOTP,
+    invoiceEmail, newBookingNotification, passwordResetOTP,
     professionalApplicationReceived,
     professionalStatusUpdate,
     registrationOTP,

@@ -9,6 +9,7 @@ import {
   disputeResolved,
   disputeResolvedProfessional,
   invoiceEmail,
+  newBookingNotification,
   passwordResetOTP,
   professionalApplicationReceived,
   professionalStatusUpdate,
@@ -121,7 +122,8 @@ class EmailService {
     startDate: string,
     endDate: string,
     totalPrice: number,
-    status: string
+    status: string,
+    invoiceUrl?: string
   ): Promise<boolean> {
     const html = bookingConfirmation(
       userName,
@@ -130,12 +132,38 @@ class EmailService {
       startDate,
       endDate,
       totalPrice,
-      status
+      status,
+      invoiceUrl
     );
 
     return this.send({
       to: userEmail,
       subject: "Booking Confirmed - Professionals BD",
+      html,
+    });
+  }
+
+  async sendNewBookingNotification(
+    professionalEmail: string,
+    professionalName: string,
+    userName: string,
+    bookingId: string,
+    startDate: string,
+    endDate: string,
+    totalPrice: number
+  ): Promise<boolean> {
+    const html = newBookingNotification(
+      professionalName,
+      userName,
+      bookingId,
+      startDate,
+      endDate,
+      totalPrice
+    );
+
+    return this.send({
+      to: professionalEmail,
+      subject: "New Booking Confirmed - Professionals BD",
       html,
     });
   }

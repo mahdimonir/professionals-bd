@@ -18,6 +18,7 @@ export default function BecomeProfessionalPage() {
 
     const [formData, setFormData] = useState({
         title: '',
+        category: '',
         bio: '',
         specialties: [] as string[],
         sessionPrice: 0,
@@ -80,6 +81,8 @@ export default function BecomeProfessionalPage() {
         try {
             await ProfessionalService.submitApplication({
                 title: formData.title,
+                category: formData.category,
+                bio: formData.bio,
                 specialties: formData.specialties,
                 sessionPrice: formData.sessionPrice,
                 experience: formData.experience,
@@ -195,6 +198,23 @@ export default function BecomeProfessionalPage() {
                                         onChange={(e) => setFormData({...formData, title: e.target.value})}
                                     />
                                     <p className="mt-1 text-sm text-gray-500">This will appear under your name on your profile.</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Category</label>
+                                <div className="mt-1">
+                                    <select
+                                        required
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                        value={formData.category} // Assuming you will add category to formData state in a separate edit or if I missed it
+                                        onChange={(e) => setFormData({...formData, category: e.target.value})}
+                                    >
+                                        <option value="">Select a category</option>
+                                        {['Technology', 'Business', 'Legal', 'Healthcare', 'Education', 'Finance', 'Marketing', 'Design', 'Engineering', 'Other'].map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 
@@ -523,9 +543,10 @@ export default function BecomeProfessionalPage() {
                                 <h3 className="text-lg font-medium text-gray-900 mb-4">Review your Application</h3>
                                 <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
                                     <div className="sm:col-span-2">
-                                        <dt className="text-sm font-medium text-gray-500">Title & Bio</dt>
+                                        <dt className="text-sm font-medium text-gray-500">Title & Category</dt>
                                         <dd className="mt-1 text-sm text-gray-900">
                                             <p className="font-semibold">{formData.title}</p>
+                                            <p className="text-gray-500 text-xs mb-1">{formData.category}</p>
                                             <p className="whitespace-pre-wrap">{formData.bio}</p>
                                         </dd>
                                     </div>

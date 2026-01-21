@@ -1,4 +1,3 @@
-import AIChatWidget from "@/components/ai/AIChatWidget";
 import Providers from "@/components/providers";
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
@@ -24,7 +23,7 @@ export default function RootLayout({
       <body className="bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
         <Providers>
           {children}
-          <AIChatWidget />
+          {/* <AIChatWidget /> */}
           <Toaster position="bottom-right" richColors />
         </Providers>
       </body>

@@ -20,13 +20,13 @@ export const accountStatusUpdate = (name: string, status: "BANNED" | "ACTIVE", r
 
 export const professionalStatusUpdate = (name: string, status: "VERIFIED" | "APPROVED" | "REJECTED", reason?: string) => {
     let title = "";
-    let color = "#3b82f6";
+    let color = "#2563eb";
     let message = "";
 
     switch (status) {
         case "VERIFIED":
             title = "Profile Verified";
-            color = "#3b82f6";
+            color = "#2563eb";
             message = "Your professional profile has been verified by our moderators. It is now awaiting final approval from the admin.";
             break;
         case "APPROVED":

@@ -112,6 +112,7 @@ export class PaymentController {
   // SSLCommerz Callbacks
   static async sslSuccess(req: Request, res: Response) {
     try {
+      console.log("SSL Success Callback Body:", req.body);
       let payment = await PaymentService.handleWebhook("SSL_COMMERZ", req.body);
       const frontendUrl = env.FRONTEND_URL;
       const bookingId = req.query.booking_id as string;
@@ -131,13 +132,22 @@ export class PaymentController {
 
       const paymentId = payment?.id || "";
 
+      console.log(`[SSL Success] Payment Found: ${!!payment}, Status: ${payment?.status}, ID: ${paymentId}`);
+
       if (professionalId) {
-        res.redirect(`${frontendUrl}/professionals/${professionalId}?paymentStatus=success&bookingId=${bookingId}&tranId=${tranId}&paymentId=${paymentId}`);
+        // STRICT CHECK: Only redirect to success if status is actually PAID
+        if (payment?.status === "PAID") {
+          res.redirect(`${frontendUrl}/professionals/${professionalId}?paymentStatus=success&bookingId=${bookingId}&tranId=${tranId}&paymentId=${paymentId}`);
+        } else {
+          console.warn(`[SSL Success] Redirecting to FAILED. Payment Status: ${payment?.status}. Expected: PAID`);
+          res.redirect(`${frontendUrl}/professionals/${professionalId}?paymentStatus=failed&bookingId=${bookingId}&paymentId=${paymentId}`);
+        }
       } else {
         // Fallback if professionalId STILL not found
         res.redirect(`${frontendUrl}/profile?tab=bookings`);
       }
     } catch (error) {
+      console.error("SSL Success Error:", error);
       const frontendUrl = env.FRONTEND_URL;
       const bookingId = req.query.booking_id as string;
       res.redirect(`${frontendUrl}/profile?tab=bookings&error=payment_failed&bookingId=${bookingId}`);

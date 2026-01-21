@@ -99,19 +99,6 @@ export class BookingService {
       },
     });
 
-    emailService.sendBookingConfirmation(
-      booking.user.email,
-      booking.user.name || "User",
-      booking.professional.name || "Professional",
-      booking.id,
-      start.toISOString(),
-      end.toISOString(),
-      price,
-      "PENDING"
-    ).catch((error) => {
-      logger.error({ error }, "Failed to send booking confirmation email");
-    });
-
     return booking;
   }
 

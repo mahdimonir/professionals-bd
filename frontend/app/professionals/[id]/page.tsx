@@ -1,6 +1,7 @@
 'use client';
 
 import { TimeSlotPicker } from '@/components/booking/time-slot-picker';
+import ConfirmationDialog from '@/components/ui/confirmation-dialog';
 import Navbar from '@/components/ui/navbar';
 import { useAuth } from '@/contexts/auth-context';
 import { BookingService } from '@/lib/services/booking-service';
@@ -27,6 +28,27 @@ export default function ProfessionalProfilePage() {
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [processingMethod, setProcessingMethod] = useState<'BKASH' | 'SSL_COMMERZ' | 'BOOKING' | null>(null);
   const [downloading, setDownloading] = useState(false);
+  
+  // Dialog State
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  const handleCancelBooking = async () => {
+    if (!bookingId) return;
+    try {
+        await BookingService.cancelBooking(bookingId, "User cancelled during payment");
+        
+        // Clear params to prevent re-entering payment mode on refresh
+        router.replace(`/professionals/${params.id}`);
+        
+        setStep('booking');
+        setBookingId(null);
+        toast.success("Booking cancelled.");
+    } catch (e) {
+        toast.error("Could not cancel");
+    } finally {
+        setShowCancelDialog(false);
+    }
+  };
 
   // Helper: Future dates for the date picker
   const today = new Date().toISOString().split('T')[0];
@@ -40,8 +62,12 @@ export default function ProfessionalProfilePage() {
 
   useEffect(() => {
     const status = searchParams.get('paymentStatus');
+    const bId = searchParams.get('bookingId');
     if (status) {
          setStep('status');
+    }
+    if (bId) {
+        setBookingId(bId);
     }
   }, [searchParams]);
 
@@ -457,16 +483,7 @@ export default function ProfessionalProfilePage() {
                 {step === 'payment' && (
                   <div className="space-y-6 relative z-10 animate-in slide-in-from-right-8 duration-500">
                     <div className="flex justify-between items-center">
-                        <button onClick={async () => {
-                            if (bookingId && confirm("Cancel this pending booking?")) {
-                                try {
-                                    await BookingService.cancelBooking(bookingId, "User cancelled during payment");
-                                    setStep('booking');
-                                    setBookingId(null);
-                                    toast.success("Booking cancelled.");
-                                } catch (e) { toast.error("Could not cancel"); }
-                            }
-                        }} className="text-[10px] font-bold uppercase text-red-400 hover:text-red-500 flex items-center gap-2 transition-colors">
+                        <button onClick={() => setShowCancelDialog(true)} className="text-[10px] font-bold uppercase text-red-400 hover:text-red-500 flex items-center gap-2 transition-colors">
                             <ArrowRight className="w-3.5 h-3.5 rotate-180" /> Cancel Order
                         </button>
                     </div>
@@ -631,6 +648,16 @@ export default function ProfessionalProfilePage() {
           </div>
         </div>
       </div>
+
+      <ConfirmationDialog
+        isOpen={showCancelDialog}
+        onClose={() => setShowCancelDialog(false)}
+        onConfirm={handleCancelBooking}
+        title="Cancel Booking"
+        message="Are you sure you want to cancel this pending booking? This action cannot be undone."
+        confirmText="Yes, Cancel"
+        type="danger"
+      />
     </div>
   );
 }

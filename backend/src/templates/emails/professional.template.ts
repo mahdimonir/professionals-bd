@@ -3,7 +3,7 @@ import { emailBaseTemplate } from "./base.template.js";
 export const professionalApplicationReceived = (name: string) => {
     const content = `
     <div style="text-align: center; padding: 20px;">
-        <h2 style="color: #3b82f6;">Application Received</h2>
+        <h2 style="color: #2563eb;">Application Received</h2>
         <p>Dear ${name},</p>
         <p>Thank you for applying to become a professional on Professionals BD.</p>
         <p>We have received your application and it is currently under review by our moderation team.</p>

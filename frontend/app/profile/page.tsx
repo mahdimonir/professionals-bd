@@ -19,7 +19,7 @@ import { ReviewService } from '@/lib/services/review-service';
 import { ProfessionalDocument, Role } from '@/lib/types';
 import { Loader2, RefreshCw, Star, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 function ProfileContent() {
@@ -44,7 +44,7 @@ function ProfileContent() {
       router.push(`/profile?tab=${tabId}`, { scroll: false });
   };
   
-  const dataFetchedRef = useRef(false);
+
   
   
   // Form states
@@ -141,9 +141,6 @@ function ProfileContent() {
   };
 
   const fetchData = useCallback(async () => {
-    if (dataFetchedRef.current) return;
-    
-    dataFetchedRef.current = true;
     setDataLoading(true);
     
     try {
@@ -160,7 +157,10 @@ function ProfileContent() {
       if (isRefetching) return;
       setIsRefetching(true);
       try {
-          await loadAllData();
+          await Promise.all([
+            loadAllData(),
+            checkAuth()
+          ]);
           toast.success("Data refreshed");
       } catch (error) {
           toast.error("Failed to refresh data");
@@ -245,6 +245,7 @@ function ProfileContent() {
     }
   };
 
+  // Sync user data to form when user context updates
   useEffect(() => {
     if (user) {
       const prof = user.professionalProfile;
@@ -263,11 +264,16 @@ function ProfileContent() {
         education: prof?.education || [],
         certifications: prof?.certifications || [],
       });
-      
-      // Fetch user data only once when user is available
+    }
+  }, [user]);
+
+  // Fetch external data when user ID changes
+  useEffect(() => {
+    if (user?.id) {
       fetchData();
     }
-  }, [user?.id, fetchData]); // Only re-run when user ID changes
+  }, [user?.id, fetchData]);
+
 
   if (loading) {
     return (

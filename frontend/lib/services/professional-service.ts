@@ -31,6 +31,8 @@ export class ProfessionalService {
     // Submit Application
     static async submitApplication(data: {
         title: string;
+        bio?: string;
+        category?: string;
         specialties: string[];
         sessionPrice: number;
         experience: number;
