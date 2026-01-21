@@ -2,9 +2,6 @@ import { ApiResponse, User } from '@/lib/types';
 import { api } from './api';
 import { PaymentMethod } from './payment-service';
 
-// ========== ADMIN SERVICE ==========
-// Comprehensive admin panel service for managing all platform resources
-
 export interface AdminUser extends User {
     createdAt: string;
 }
@@ -17,9 +14,19 @@ export interface AdminProfessional {
     experience?: number;
     sessionPrice?: number;
     bio?: string;
+    category?: string;
+    specialties?: string[];
+    languages?: string[];
     linkedinUrl?: string;
     cvUrl?: string;
+    education?: string[];
+    certifications?: string[];
     createdAt: string;
+    verifiedBy?: string;
+    verifiedAt?: string;
+    approvedBy?: string;
+    approvedAt?: string;
+    rejectionReason?: string;
     user?: {
         name: string;
         email: string;
@@ -78,7 +85,6 @@ export interface AuditLog {
 }
 
 export class AdminService {
-    // ========== USER MANAGEMENT ==========
 
     static async getAllUsers(params?: { page?: number; limit?: number; role?: string; search?: string }) {
         const queryParams = new URLSearchParams();
@@ -120,8 +126,6 @@ export class AdminService {
         return response.data;
     }
 
-    // ========== PROFESSIONAL MANAGEMENT ==========
-
     static async getAllProfessionals(params?: {
         page?: number;
         limit?: number;
@@ -159,7 +163,6 @@ export class AdminService {
         return response.data;
     }
 
-    // Step:01 verify by Moderator (PENDING → VERIFIED or REJECTED)
     static async verifyProfessional(userId: string, isVerified: boolean, category: string) {
         const response = await api.patch<ApiResponse<{ success: boolean }>>(
             `/admin/professionals/${userId}/verify`,
@@ -175,7 +178,6 @@ export class AdminService {
         return response.data;
     }
 
-    // Step:02 approve by Admin (VERIFIED → APPROVED or REJECTED)
     static async approveProfessionalByAdmin(userId: string) {
         const response = await api.patch<ApiResponse<{ success: boolean }>>(
             `/admin/professionals/${userId}/approve`
@@ -198,8 +200,6 @@ export class AdminService {
         return response.data;
     }
 
-    // ========== BOOKING MANAGEMENT ==========
-
     static async getAllBookings(params?: {
         page?: number;
         limit?: number;
@@ -220,8 +220,6 @@ export class AdminService {
         return response.data;
     }
 
-    // ========== PAYMENT MANAGEMENT ==========
-
     static async getAllPayments(params?: { page?: number; limit?: number; status?: string; method?: string }) {
         const queryParams = new URLSearchParams();
         if (params?.page) queryParams.append('page', params.page.toString());
@@ -234,8 +232,6 @@ export class AdminService {
         );
         return response.data;
     }
-
-    // ========== WITHDRAW MANAGEMENT ==========
 
     static async getAllWithdrawRequests(params?: { page?: number; limit?: number; status?: string }) {
         const queryParams = new URLSearchParams();
@@ -264,8 +260,6 @@ export class AdminService {
         return response.data;
     }
 
-    // ========== REPORTS (Unified Report Service) ==========
-
     static async getAvailableReports() {
         const response = await api.get<ApiResponse<{ reports: { type: string; name: string; description: string }[]; formats: string[] }>>('/reports/available');
         return response.data;
@@ -286,12 +280,9 @@ export class AdminService {
         if (startDate) params.append('startDate', startDate);
         if (endDate) params.append('endDate', endDate);
 
-        // For file download, we need to get the blob
         const response = await api.get(`/reports/${type}/download?${params.toString()}`, {
             responseType: 'blob'
         });
-
-        // Create download link
         const blob = new Blob([response.data], {
             type: format === 'pdf' ? 'application/pdf'
                 : format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -307,7 +298,6 @@ export class AdminService {
         window.URL.revokeObjectURL(url);
     }
 
-    // Legacy aliases for backward compatibility (use new methods instead)
     static async getRevenueReportByAdmin(startDate?: string, endDate?: string) {
         return this.getReportPreview('revenue', startDate, endDate);
     }
@@ -333,8 +323,6 @@ export class AdminService {
         return this.getReportPreview('my-earnings');
     }
 
-    // ========== AUDIT LOGS ==========
-
     static async getAuditLogsByAdmin(params?: { page?: number; limit?: number; action?: string }) {
         const queryParams = new URLSearchParams();
         if (params?.page) queryParams.append('page', params.page.toString());
@@ -346,8 +334,6 @@ export class AdminService {
         );
         return response.data;
     }
-
-    // ========== DRAFT PROFESSIONAL MANAGEMENT ==========
 
     static async addDraftProfessional(data: {
         name: string;

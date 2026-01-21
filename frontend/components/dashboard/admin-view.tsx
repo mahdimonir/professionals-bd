@@ -95,6 +95,7 @@ export default function AdminView() {
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   const [inputValue, setInputValue] = useState('');
+  const [expandedProId, setExpandedProId] = useState<string | null>(null);
 
   // Confirmation dialog state
   const [dialogState, setDialogState] = useState<{
@@ -818,63 +819,196 @@ export default function AdminView() {
               </div>
             )}
 
-            {/* All Professionals */}
-            {/* Mobile Cards */}
-            <div className="sm:hidden space-y-3">
-              {professionals.map(p => (
-                <div key={p.id} className="p-3 border border-slate-200 dark:border-slate-700 rounded-xl">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
-                      <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{p.user?.name || 'Unknown'}</p>
-                      <p className="text-xs text-slate-500 truncate">{p.title || '-'}</p>
-                    </div>
-                    <StatusBadge status={p.status} />
-                  </div>
-                  {p.status === 'VERIFIED' && (
-                    <div className="flex gap-2 mt-2">
-                      <button onClick={() => handleApprovePro(p.userId, p.user?.name || 'Unknown')} className="flex-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1.5 rounded-lg font-bold">Approve</button>
-                      <button onClick={() => handleRejectPro(p.userId, p.user?.name || 'Unknown')} className="flex-1 text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-2 py-1.5 rounded-lg font-bold">Reject</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {/* Desktop Table */}
-            <div className="hidden sm:block overflow-x-auto no-scrollbar">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase">
-                    <th className="pb-3">Name</th>
-                    <th className="pb-3">Title</th>
-                    <th className="pb-3">Status</th>
-                    <th className="pb-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {professionals.map(p => (
-                    <tr key={p.id} className="text-sm">
-                      <td className="py-3 font-bold text-slate-900 dark:text-white">{p.user?.name || 'Unknown'}</td>
-                      <td className="py-3 text-slate-500">{p.title || '-'}</td>
-                      <td className="py-3"><StatusBadge status={p.status} /></td>
-                      <td className="py-3 text-right space-x-2">
+            {/* All Professionals - Expandable Cards */}
+            <div className="space-y-3">
+              {professionals.map(p => {
+                const isExpanded = expandedProId === p.id;
+                const educationData = Array.isArray(p.education) ? p.education.map((e: any) => {
+                  try { return typeof e === 'string' ? JSON.parse(e) : e; } catch { return { name: e }; }
+                }) : [];
+                const certificationData = Array.isArray(p.certifications) ? p.certifications.map((c: any) => {
+                  try { return typeof c === 'string' ? JSON.parse(c) : c; } catch { return { name: c }; }
+                }) : [];
+                
+                return (
+                  <div key={p.id} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/50">
+                    {/* Header Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center p-4 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer gap-3" onClick={() => setExpandedProId(isExpanded ? null : p.id)}>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 shrink-0 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
+                          {p.user?.name?.[0] || 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{p.user?.name || 'Unknown'}</p>
+                          <p className="text-xs text-slate-500 truncate">{p.user?.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="hidden md:block">
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{p.title || '-'}</p>
+                          <p className="text-[10px] text-slate-500">{p.category || 'Uncategorized'}</p>
+                        </div>
+                        <StatusBadge status={p.status} />
                         {p.status === 'VERIFIED' && (
-                          <>
-                            <button onClick={() => handleApprovePro(p.userId, p.user?.name || 'Unknown')} className="text-green-600 text-xs font-bold hover:underline">Approve</button>
-                            <button onClick={() => handleRejectPro(p.userId, p.user?.name || 'Unknown')} className="text-red-500 text-xs font-bold hover:underline">Reject</button>
-                          </>
+                          <div className="hidden sm:flex items-center gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); handleApprovePro(p.userId, p.user?.name || 'Unknown'); }} className="text-xs font-bold text-white bg-green-600 px-3 py-1.5 rounded-lg hover:bg-green-700">Approve</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleRejectPro(p.userId, p.user?.name || 'Unknown'); }} className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100">Reject</button>
+                          </div>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {professionals.length === 0 && (
-                  <div className="col-span-full py-12 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
-                     <CheckCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                     <p className="text-slate-400 font-bold text-sm">No professionals found.</p>
+                        <button className="text-slate-400">
+                          {isExpanded ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      {/* Mobile Title & Actions */}
+                      <div className="sm:hidden space-y-2">
+                        <div>
+                          <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{p.title || '-'}</p>
+                          <p className="text-[10px] text-slate-500">{p.category || 'Uncategorized'}</p>
+                        </div>
+                        {p.status === 'VERIFIED' && (
+                          <div className="flex items-center gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); handleApprovePro(p.userId, p.user?.name || 'Unknown'); }} className="flex-1 text-xs font-bold text-white bg-green-600 px-3 py-1.5 rounded-lg hover:bg-green-700">Approve</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleRejectPro(p.userId, p.user?.name || 'Unknown'); }} className="flex-1 text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100">Reject</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-200">
+                        {/* Bio */}
+                        {p.bio && (
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Bio</h4>
+                            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{p.bio}</p>
+                          </div>
+                        )}
+
+                        {/* Grid of Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Experience */}
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Experience</h4>
+                            <p className="text-sm text-slate-900 dark:text-white">{p.experience || 0} years</p>
+                          </div>
+
+                          {/* Session Price */}
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Session Price</h4>
+                            <p className="text-sm text-slate-900 dark:text-white">৳{p.sessionPrice || 0}</p>
+                          </div>
+
+                          {/* Category */}
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Category</h4>
+                            <p className="text-sm text-slate-900 dark:text-white">{p.category || 'Not Set'}</p>
+                          </div>
+
+                          {/* Specialties */}
+                          {p.specialties && Array.isArray(p.specialties) && p.specialties.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Specialties</h4>
+                              <div className="flex flex-wrap gap-1">
+                                {p.specialties.map((s: string, idx: number) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-[10px] font-medium">{s}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Languages */}
+                          {p.languages && Array.isArray(p.languages) && p.languages.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Languages</h4>
+                              <div className="flex flex-wrap gap-1">
+                                {p.languages.map((lang: string, idx: number) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-[10px] font-medium">{lang}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Links */}
+                        <div className="flex gap-3">
+                          {p.linkedinUrl && <a href={p.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"><CheckCircle className="w-3 h-3" /> LinkedIn</a>}
+                          {p.cvUrl && <a href={p.cvUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"><FileText className="w-3 h-3" /> CV</a>}
+                        </div>
+
+                        {/* Education */}
+                        {educationData.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Education</h4>
+                            <div className="space-y-2">
+                              {educationData.map((edu: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                  <span className="text-sm text-slate-900 dark:text-white">{edu.name || 'Unnamed'}</span>
+                                  {edu.doc && <a href={edu.doc} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-primary-600 hover:underline flex items-center gap-1"><FileText className="w-3 h-3" /> View Document</a>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Certifications */}
+                        {certificationData.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Certifications</h4>
+                            <div className="space-y-2">
+                              {certificationData.map((cert: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                  <span className="text-sm text-slate-900 dark:text-white">{cert.name || 'Unnamed'}</span>
+                                  {cert.doc && <a href={cert.doc} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-primary-600 hover:underline flex items-center gap-1"><FileText className="w-3 h-3" /> View Document</a>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Verification Metadata */}
+                        <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                          <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Verification Details</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            {p.verifiedBy && (
+                              <div>
+                                <span className="text-slate-500">Verified By:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">{p.verifiedBy}</span>
+                              </div>
+                            )}
+                            {p.verifiedAt && (
+                              <div>
+                                <span className="text-slate-500">Verified At:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">{new Date(p.verifiedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {p.approvedBy && (
+                              <div>
+                                <span className="text-slate-500">Approved By:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">{p.approvedBy}</span>
+                              </div>
+                            )}
+                            {p.approvedAt && (
+                              <div>
+                                <span className="text-slate-500">Approved At:</span>
+                                <span className="ml-2 font-medium text-slate-900 dark:text-white">{new Date(p.approvedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+                            {p.rejectionReason && (
+                              <div className="md:col-span-2">
+                                <span className="text-red-500 font-bold">Rejection Reason:</span>
+                                <p className="mt-1 text-slate-900 dark:text-white bg-red-50 dark:bg-red-900/20 p-2 rounded">{p.rejectionReason}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                );
+              })}
+              {professionals.length === 0 && <div className="text-center py-8 text-slate-400 text-sm">No professionals found</div>}
+            </div>
           </div>
         )}
 

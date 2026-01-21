@@ -326,6 +326,20 @@ export function PersonalInfoTab({
                 onChange={e => setFormData({ ...formData, title: e.target.value })}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
+              <select
+                disabled={!isEditing}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm disabled:opacity-60"
+                value={formData.category || ''}
+                onChange={e => setFormData({ ...formData, category: e.target.value })}
+              >
+                  <option value="">Select Category</option>
+                  {['Technology', 'Business', 'Legal', 'Healthcare', 'Education', 'Finance', 'Marketing', 'Design', 'Engineering', 'Other'].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                  ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Experience (Years)</label>

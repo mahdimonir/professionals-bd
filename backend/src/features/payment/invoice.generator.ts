@@ -8,25 +8,25 @@ import { ApiError } from "../../utils/apiError.js";
 
 interface InvoiceConfig {
   companyName?: string;
-  companyLogoUrl?: string; // optional Cloudinary logo
+  companyLogoUrl?: string;
   companyAddress?: string;
   companyEmail?: string;
   companyPhone?: string;
   extraFooterText?: string;
   includeVAT?: boolean;
-  vatRate?: number; // e.g. 0.15 for 15%
-  sendEmail?: boolean; // Send invoice email after generation
+  vatRate?: number;
+  sendEmail?: boolean;
 }
 
 const defaultConfig: InvoiceConfig = {
   companyName: "ProfessionalsBD",
   companyAddress: "Dhaka, Bangladesh",
-  companyEmail: "support@professionalsbd.com",
-  companyPhone: "+880 1234 567890",
+  companyEmail: "contact.professionalsbd@gmail.com",
+  companyPhone: "+880 1805-543685",
   extraFooterText: "Thank you for choosing ProfessionalsBD",
   includeVAT: false,
   vatRate: 0,
-  sendEmail: true, // Default to sending email
+  sendEmail: false,
 };
 
 export async function generateInvoicePDF(

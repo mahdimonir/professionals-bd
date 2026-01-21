@@ -63,6 +63,12 @@ export default function ModeratorView() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [pendingVerificationId, setPendingVerificationId] = useState<string | null>(null);
+  const [expandedProId, setExpandedProId] = useState<string | null>(null);
+  
+  // Rejection dialog state
+  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [pendingRejectionId, setPendingRejectionId] = useState<string | null>(null);
   
   // Input Dialog State (Simulated with standard state for now to match AdminView pattern or simplify)
   const [dialogState, setDialogState] = useState<{
@@ -210,25 +216,26 @@ export default function ModeratorView() {
   };
 
   const handleRejectPro = (id: string) => {
-    setDialogState({
-      isOpen: true,
-      title: 'Reject Application',
-      message: 'Are you sure you want to reject this application?',
-      confirmText: 'Reject',
-      type: 'danger',
-      action: async () => {
-        const reason = window.prompt("Enter rejection reason:");
-        if (!reason) return;
-        try {
-           await AdminService.rejectUnverifiedProfessional(id, reason);
-           toast.success('Application rejected');
-           setDialogState(prev => ({ ...prev, isOpen: false }));
-           fetchApplications();
-        } catch (error) {
-           toast.error('Failed to reject application');
-        }
-      }
-    });
+    setPendingRejectionId(id);
+    setShowRejectionDialog(true);
+    setRejectionReason('');
+  };
+
+  const confirmRejectPro = async () => {
+    if (!rejectionReason.trim() || !pendingRejectionId) {
+      toast.error('Please provide a rejection reason');
+      return;
+    }
+    try {
+      await AdminService.rejectUnverifiedProfessional(pendingRejectionId, rejectionReason);
+      toast.success('Application rejected');
+      setShowRejectionDialog(false);
+      setPendingRejectionId(null);
+      setRejectionReason('');
+      fetchApplications();
+    } catch (error) {
+      toast.error('Failed to reject application');
+    }
   };
 
   const handleBanUser = (id: string, name: string) => {
@@ -425,51 +432,151 @@ export default function ModeratorView() {
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <UserCheck className="w-5 h-5 text-primary-500" /> Professional Applications
                     </h2>
-                    <div className="overflow-x-auto no-scrollbar">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] font-bold text-slate-400 uppercase">
-                                <tr>
-                                    <th className="px-4 py-3 rounded-l-lg">Applicant</th>
-                                    <th className="px-4 py-3">Details</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3 rounded-r-lg text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {professionals.map(p => (
-                                    <tr key={p.id}>
-                                        <td className="px-4 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center font-bold text-slate-500">
-                                                    {p.user?.name?.[0] || 'U'}
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-sm text-slate-900 dark:text-white">{p.user?.name}</p>
-                                                    <p className="text-xs text-slate-500">{p.user?.email}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{p.title}</p>
-                                            <div className="flex gap-2 mt-1">
-                                                {p.linkedinUrl && <a href={p.linkedinUrl} target="_blank" className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"><ExternalLink size={10} /> LinkedIn</a>}
-                                                {p.cvUrl && <a href={p.cvUrl} target="_blank" className="text-[10px] text-orange-600 hover:underline flex items-center gap-1"><ExternalLink size={10} /> CV</a>}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4"><StatusBadge status={p.status} /></td>
-                                        <td className="px-4 py-4 text-right">
-                                            {p.status === 'PENDING' && (
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button onClick={() => handleVerifyPro(p.userId)} className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg hover:bg-green-100">Verify</button>
-                                                    <button onClick={() => handleRejectPro(p.userId)} className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100">Reject</button>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {professionals.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate-400 text-sm">No applications found</td></tr>}
-                            </tbody>
-                        </table>
+                    
+                    <div className="space-y-3">
+                      {professionals.map(p => {
+                        const isExpanded = expandedProId === p.id;
+                        const educationData = Array.isArray(p.education) ? p.education.map((e: any) => {
+                          try { return typeof e === 'string' ? JSON.parse(e) : e; } catch { return { name: e }; }
+                        }) : [];
+                        const certificationData = Array.isArray(p.certifications) ? p.certifications.map((c: any) => {
+                          try { return typeof c === 'string' ? JSON.parse(c) : c; } catch { return { name: c }; }
+                        }) : [];
+                        
+                        return (
+                          <div key={p.id} className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-800/50">
+                            {/* Header Row */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-white dark:hover:bg-slate-800 transition-colors cursor-pointer gap-3" onClick={() => setExpandedProId(isExpanded ? null : p.id)}>
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <div className="w-10 h-10 shrink-0 bg-slate-200 dark:bg-slate-700 rounded-full flex items-center justify-center font-bold text-slate-600 dark:text-slate-300">
+                                  {p.user?.name?.[0] || 'U'}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{p.user?.name}</p>
+                                  <p className="text-xs text-slate-500 truncate">{p.user?.email}</p>
+                                  <div className="md:hidden mt-1">
+                                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">{p.title}</p>
+                                    <p className="text-[10px] text-slate-500">{p.category || 'Uncategorized'}</p>
+                                  </div>
+                                </div>
+                                <div className="hidden md:block shrink-0">
+                                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{p.title}</p>
+                                  <p className="text-[10px] text-slate-500">{p.category || 'Uncategorized'}</p>
+                                </div>
+                                <div className="shrink-0">
+                                  <StatusBadge status={p.status} />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {p.status === 'PENDING' && (
+                                  <div className="flex items-center gap-2">
+                                    <button onClick={(e) => { e.stopPropagation(); handleVerifyPro(p.userId); }} className="text-xs font-bold text-white bg-green-600 px-3 py-1.5 rounded-lg hover:bg-green-700">Verify</button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleRejectPro(p.userId); }} className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100">Reject</button>
+                                  </div>
+                                )}
+                                <button className="text-slate-400">
+                                  {isExpanded ? <XCircle className="w-5 h-5" /> : <ExternalLink className="w-5 h-5" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expanded Details */}
+                            {isExpanded && (
+                              <div className="px-4 pb-4 space-y-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top duration-200">
+                                {/* Bio */}
+                                {p.bio && (
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Bio</h4>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{p.bio}</p>
+                                  </div>
+                                )}
+
+                                {/* Grid of Details */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Experience */}
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Experience</h4>
+                                    <p className="text-sm text-slate-900 dark:text-white">{p.experience || 0} years</p>
+                                  </div>
+
+                                  {/* Session Price */}
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Session Price</h4>
+                                    <p className="text-sm text-slate-900 dark:text-white">৳{p.sessionPrice || 0}</p>
+                                  </div>
+
+                                  {/* Category */}
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Category</h4>
+                                    <p className="text-sm text-slate-900 dark:text-white">{p.category || 'Not Set'}</p>
+                                  </div>
+
+                                  {/* Specialties */}
+                                  {p.specialties && Array.isArray(p.specialties) && p.specialties.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Specialties</h4>
+                                      <div className="flex flex-wrap gap-1">
+                                        {p.specialties.map((s: string, idx: number) => (
+                                          <span key={idx} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded text-[10px] font-medium">{s}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Languages */}
+                                  {p.languages && Array.isArray(p.languages) && p.languages.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-bold text-slate-400 uppercase mb-1">Languages</h4>
+                                      <div className="flex flex-wrap gap-1">
+                                        {p.languages.map((lang: string, idx: number) => (
+                                          <span key={idx} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-[10px] font-medium">{lang}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Links */}
+                                <div className="flex gap-3">
+                                  {p.linkedinUrl && <a href={p.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> LinkedIn</a>}
+                                  {p.cvUrl && <a href={p.cvUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> CV</a>}
+                                </div>
+
+                                {/* Education */}
+                                {educationData.length > 0 && (
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Education</h4>
+                                    <div className="space-y-2">
+                                      {educationData.map((edu: any, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                          <span className="text-sm text-slate-900 dark:text-white">{edu.name || 'Unnamed'}</span>
+                                          {edu.doc && <a href={edu.doc} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-primary-600 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> View Document</a>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Certifications */}
+                                {certificationData.length > 0 && (
+                                  <div>
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Certifications</h4>
+                                    <div className="space-y-2">
+                                      {certificationData.map((cert: any, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                                          <span className="text-sm text-slate-900 dark:text-white">{cert.name || 'Unnamed'}</span>
+                                          {cert.doc && <a href={cert.doc} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-primary-600 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> View Document</a>}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {professionals.length === 0 && <div className="text-center py-8 text-slate-400 text-sm">No applications found</div>}
                     </div>
                   </div>
                 )}
@@ -661,6 +768,48 @@ export default function ModeratorView() {
              </>
          )}
       </div>
+
+       {/* Rejection Dialog */}
+       {showRejectionDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white mb-4 uppercase tracking-tighter">
+              Reject Application
+            </h3>
+            <p className="text-slate-500 text-sm mb-4">
+              Please provide a reason for rejecting this application.
+            </p>
+            
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Insufficient credentials and experience for platform standards"
+              rows={4}
+              className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none text-sm"
+            />
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowRejectionDialog(false);
+                  setPendingRejectionId(null);
+                  setRejectionReason('');
+                }}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectPro}
+                disabled={!rejectionReason.trim()}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reject Application
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
        {/* Category Selection Dialog */}
        {showCategoryDialog && (

@@ -372,7 +372,7 @@ export default function AddProfessionalPage() {
 
             {devOTP && (
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3 rounded-xl mb-4 text-sm">
-                <span className="font-bold">Dev OTP:</span> {devOTP}
+                <span className="font-bold">Authority OTP:</span> {devOTP}
               </div>
             )}
 
