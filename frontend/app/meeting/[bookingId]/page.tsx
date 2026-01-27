@@ -30,25 +30,53 @@ import {
 } from 'lucide-react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 const STREAM_API_KEY = process.env.NEXT_PUBLIC_STREAM_API_KEY!;
 
-// Recording Controls Component (Professional only)
-const RecordingControls = () => {
+// Recording Controls Component (Host only - backend enforces host verification)
+const RecordingControls = ({ user, guestName, callId }: { user: any; guestName: string; callId: string }) => {
   const call = useCall();
-  const { useIsCallRecordingInProgress, useLocalParticipant } = useCallStateHooks();
+  const { useCallCreatedBy, useIsCallRecordingInProgress } = useCallStateHooks();
+  const createdBy = useCallCreatedBy();
   const isRecording = useIsCallRecordingInProgress();
-  const localParticipant = useLocalParticipant();
+  
+  // Early return if call state is not ready
+  if (!call || !createdBy) {
+    return null;
+  }
+  
+  // Use the same reliable host detection as handleLeaveCall
+  const currentUserId = guestName ? guestName : user?.id;
+  const isHost = createdBy?.id === currentUserId;
+  
+  if (!isHost) return null;
 
-  const canRecord = localParticipant?.roles?.includes('admin') || localParticipant?.roles?.includes('host');
+  const startRecording = async () => {
+    try {
+      // Call backend API which verifies host permission
+      await MeetingService.startRecording(callId);
+    } catch (err: any) {
+      console.error("Failed to start recording", err);
+      alert(err.response?.data?.message || 'Failed to start recording');
+    }
+  };
 
-  if (!canRecord || !call) return null;
+  const stopRecording = async () => {
+    try {
+      // Call backend API which verifies host permission
+      await MeetingService.stopRecording(callId);
+    } catch (err: any) {
+      console.error("Failed to stop recording", err);
+      alert(err.response?.data?.message || 'Failed to stop recording');
+    }
+  };
 
   return (
     <div className="flex items-center gap-2 sm:gap-3">
       {isRecording ? (
         <button
-          onClick={() => call.stopRecording()}
+          onClick={stopRecording}
           className="bg-red-600 hover:bg-red-700 px-4 sm:px-6 py-3 sm:py-3 rounded-xl sm:rounded-2xl text-white font-black text-xs sm:text-[10px] uppercase tracking-widest flex items-center gap-2 sm:gap-2 transition-all shadow-lg active:scale-95 min-h-[44px]"
         >
           <CircleStop className="w-4 h-4 sm:w-4 sm:h-4 animate-pulse" />
@@ -57,7 +85,7 @@ const RecordingControls = () => {
         </button>
       ) : (
         <button
-          onClick={() => call.startRecording()}
+          onClick={startRecording}
           className="bg-white/10 hover:bg-white/20 border border-white/10 px-4 sm:px-6 py-3 sm:py-3 rounded-xl sm:rounded-2xl text-white font-black text-xs sm:text-[10px] uppercase tracking-widest flex items-center gap-2 sm:gap-2 transition-all active:scale-95 min-h-[44px]"
         >
           <Circle className="w-4 h-4 sm:w-4 sm:h-4 text-red-500 fill-red-500" />
@@ -74,7 +102,9 @@ const InviteButton = () => {
   const [copied, setCopied] = useState(false);
   
   const handleCopy = () => {
-    navigator.clipboard.writeText(window.location.href);
+    // Get the base URL without query parameters
+    const baseUrl = window.location.origin + window.location.pathname;
+    navigator.clipboard.writeText(baseUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -128,19 +158,19 @@ function MeetingContent() {
       console.log('User:', user, 'Guest mode:', guestMode, 'Guest name:', guestName);
       
       if (guestMode && guestName) {
-        // Guest joining ad-hoc meeting
         console.log('Fetching guest token for:', bookingId);
         tokenData = await MeetingService.getGuestToken(bookingId as string, guestName);
       } else if (user) {
-        // Check if this is an ad-hoc meeting (created by admin/moderator) or booking-based
-        // Ad-hoc meetings typically have a different ID format or we can try ad-hoc first
         try {
-          // Try ad-hoc meeting token first (for admin/moderator created meetings)
           console.log('Trying ad-hoc token for:', bookingId);
           tokenData = await MeetingService.getAdHocJoinToken(bookingId as string);
           console.log('Ad-hoc token received:', tokenData);
-        } catch (error) {
-          // If ad-hoc fails, try regular booking token
+        } catch (error: any) {
+          // If the call has ended, don't fallback - show the proper error
+          if (error.response?.data?.message?.includes('ended')) {
+            throw error;
+          }
+          // Only fallback to booking token for 404 errors (call not found as ad-hoc)
           console.log('Ad-hoc failed, trying booking token:', error);
           tokenData = await MeetingService.getJoinToken(bookingId as string);
           console.log('Booking token received:', tokenData);
@@ -154,80 +184,96 @@ function MeetingContent() {
         user: {
           id: tokenData.data.userId || tokenData.data.user?.id || user?.id || `guest_${Date.now()}`,
           name: user?.name || tokenData.data.user?.name || guestName || 'Guest',
-          image: user?.avatar || undefined, // Add user avatar if logged in
+          image: user?.avatar || undefined,
         },
         token: tokenData.data.token,
       });
 
       const call = client.call(tokenData.data.callType, tokenData.data.callId);
       
-      // Use BroadcastChannel to notify other tabs to close
       const channel = new BroadcastChannel(`meeting_${bookingId}`);
       
-      // Send message to close any existing tabs with this meeting
       channel.postMessage({ type: 'NEW_SESSION', timestamp: Date.now() });
       
-      // Listen for new sessions (to close THIS tab if another one opens)
-      channel.onmessage = (event) => {
-        if (event.data.type === 'NEW_SESSION') {
-          console.log('Another tab opened this meeting, closing this session...');
-          // Clean up and redirect
-          if (activeCall) activeCall.leave().catch(() => {});
-          if (videoClient) videoClient.disconnectUser().catch(() => {});
-          setStatus('idle');
-          setErrorMessage('This meeting was opened in another tab.');
-          router.push('/dashboard');
-        }
-      };
       
-      // Store channel reference for cleanup
-      (window as any).__meetingChannel = channel;
-      
-
-      // Get call info to check if user is already in it (from different browser/device)
-      const callInfo = await call.get();
-      const currentUserId = tokenData.data.userId || tokenData.data.user?.id || user?.id;
-      
-      // Check if user is already a participant (from another browser/device)
-      const existingParticipant = callInfo.members.find((m: any) => m.user_id === currentUserId);
-      const meetingKey = `meeting_active_${bookingId}`;
-      const existingSession = localStorage.getItem(meetingKey);
-      
-      if (existingParticipant && !existingSession) {
-        console.log('User already in call from another device/browser');
-        const shouldContinue = window.confirm(
-          'You are already in this call from another device or browser. Do you want to continue here? (This will disconnect your other session)'
-        );
-        
-        if (!shouldContinue) {
-          setStatus('idle');
-          setErrorMessage('You chose not to join. Please use your existing session.');
-          localStorage.removeItem(meetingKey);
-          client.disconnectUser();
-          return;
-        }
-      }
-      
-      // Join the call (don't create, just join)
-      await call.join({ create: false });
-
-      
-      console.log('Successfully joined call');
-      
-      // Listen for call ended event (when host ends or user is kicked)
-      call.on('call.ended', () => {
-        console.log('Call ended by host or session kicked');
-        // Close broadcast channel
+      const handleCallEnd = () => {
+        console.log('Call ended - cleaning up and redirecting');
         if ((window as any).__meetingChannel) {
           (window as any).__meetingChannel.close();
         }
+        // Use the local 'call' and 'client' variables, not the state ones
+        if (call) call.leave().catch(() => {});
+        if (client) client.disconnectUser().catch(() => {});
         setStatus('idle');
         setErrorMessage('The call has ended.');
         setActiveCall(null);
         setVideoClient(null);
         hasJoinedRef.current = false;
-        client.disconnectUser();
         router.push('/dashboard');
+      };
+
+      channel.onmessage = (event) => {
+        if (event.data.type === 'NEW_SESSION') {
+          console.log('Another tab opened this meeting, closing this session...');
+          if (call) call.leave().catch(() => {});
+          if (client) client.disconnectUser().catch(() => {});
+          setStatus('idle');
+          setErrorMessage('This meeting was opened in another tab.');
+          router.push('/dashboard');
+        } else if (event.data.type === 'HOST_ENDED_CALL') {
+          console.log('Host ended the call - disconnecting all participants');
+          handleCallEnd();
+        }
+      };
+      
+      (window as any).__meetingChannel = channel;
+      
+      const callInfo = await call.get();
+      const meetingKey = `meeting_active_${bookingId}`;
+      localStorage.setItem(meetingKey, Date.now().toString());
+      
+      await call.join({ create: false });
+
+      
+      console.log('Successfully joined call');
+      
+      // Keep Stream.io event listeners as backup
+      call.on('call.ended', handleCallEnd);
+      call.on('call.session_ended', handleCallEnd);
+      
+      call.on('call.member_removed', (event: any) => {
+        console.log('Member removed from call:', event);
+        if (event.user?.id === (tokenData.data.userId || tokenData.data.user?.id)) {
+          handleCallEnd();
+        }
+      });
+
+
+      // Recording event listeners - notify non-host participants only
+      call.on('call.recording_started', () => {
+        console.log('Recording started');
+        // Only notify non-hosts (participants)
+        const currentUserId = guestName ? guestName : (user?.id || tokenData.data.userId);
+        const isHost = call.state.createdBy?.id === currentUserId;
+        
+        if (!isHost) {
+          toast.error('Recording Started - This call is now being recorded', {
+            duration: 5000,
+          });
+        }
+      });
+
+      call.on('call.recording_stopped', () => {
+        console.log('Recording stopped');
+        // Only notify non-hosts (participants)
+        const currentUserId = guestName ? guestName : (user?.id || tokenData.data.userId);
+        const isHost = call.state.createdBy?.id === currentUserId;
+        
+        if (!isHost) {
+          toast.info('Recording Stopped', {
+            duration: 4000,
+          });
+        }
       });
 
 
@@ -245,7 +291,6 @@ function MeetingContent() {
     e.preventDefault();
     if (!guestNameInput.trim()) return;
     
-    // Redirect with guest parameters
     router.push(`/meeting/${bookingId}?guest=true&name=${encodeURIComponent(guestNameInput.trim())}`);
   };
 
@@ -276,7 +321,37 @@ function MeetingContent() {
   };
 }, [bookingId, user, guestMode, guestName]);
 
-  // Auto-hide controls on mouse inactivity
+  // Hide Stream.io's built-in recording button (we use custom host-only controls)
+  useEffect(() => {
+    const hideRecordingButton = () => {
+      const selectors = [
+        'button[data-testid="recording-button"]',
+        'button[aria-label*="record" i]',
+        'button[aria-label*="recording" i]',
+        '.str-video__call-controls__button[data-testid*="record"]',
+        '.str-video__composite-button[data-testid*="record"]'
+      ];
+      
+      selectors.forEach(selector => {
+        const buttons = document.querySelectorAll(selector);
+        buttons.forEach((button: any) => {
+          // Only hide if it's inside CallControls, not our custom header controls
+          const isInCallControls = button.closest('.str-video__call-controls');
+          if (isInCallControls) {
+            button.style.display = 'none';
+          }
+        });
+      });
+    };
+
+    // Run immediately and on interval to catch dynamically added buttons
+    hideRecordingButton();
+    const interval = setInterval(hideRecordingButton, 500);
+
+    return () => clearInterval(interval);
+  }, [activeCall]);
+
+
   useEffect(() => {
     const handleActivity = () => {
       setShowControls(true);
@@ -297,7 +372,6 @@ function MeetingContent() {
     };
   }, [status]);
 
-  // Guest Name Input Screen
   if (!user && !guestMode) {
     return (
       <div className="min-h-screen min-h-[100dvh] bg-slate-950 flex items-center justify-center p-4 sm:p-6 z-[300]">
@@ -360,37 +434,69 @@ function MeetingContent() {
 
   const handleLeaveCall = async () => {
     try {
-      if (activeCall) {
-        const localParticipant = activeCall.state.localParticipant;
-        const isHost = localParticipant?.roles?.includes('host') || localParticipant?.roles?.includes('admin');
-        
-        // Stop all media tracks properly
-try {
-  const camera = activeCall.camera;
-  const microphone = activeCall.microphone;
-  
-  if (camera) {
-    if (camera.state?.status === 'enabled') await camera.disable();
-    camera.mediaStream?.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-  }
-  
-  if (microphone) {
-    if (microphone.state?.status === 'enabled') await microphone.disable();
-    microphone.mediaStream?.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-  }
-} catch (err) {
-  console.error('Error stopping media:', err);
-}
-        
-        // If user is host, end the call for everyone
-        if (isHost) {
-          console.log('Host leaving - ending call for everyone');
-          await activeCall.endCall();
-        } else {
-          // Regular participant just leaves
-          await activeCall.leave();
-        }
+      // Guard against calling leave on an already-left call
+      if (!activeCall) {
+        console.log('Call already left or not active');
+        router.push('/dashboard');
+        return;
       }
+      
+      const createdBy = activeCall.state.createdBy;
+      
+      // Use the user object from useAuth instead of localParticipant (which can be undefined)
+      const currentUserId = guestMode ? guestName : user?.id;
+      const isHost = createdBy?.id === currentUserId;
+      
+      console.log('Leave call triggered. isHost:', isHost, 'Creator:', createdBy?.id, 'Current User:', currentUserId);
+      
+      // Stop all media tracks properly
+      try {
+        const camera = activeCall.camera;
+        const microphone = activeCall.microphone;
+        
+        if (camera) {
+          if (camera.state?.status === 'enabled') await camera.disable();
+          camera.mediaStream?.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        }
+        
+        if (microphone) {
+          if (microphone.state?.status === 'enabled') await microphone.disable();
+          microphone.mediaStream?.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        }
+      } catch (err) {
+        console.error('Error stopping media:', err);
+      }
+      
+      // If user is host, broadcast call end to all participants FIRST
+      if (isHost) {
+        console.log('HOST ENDING CALL - Broadcasting to all participants');
+        
+        const channel = (window as any).__meetingChannel;
+        if (channel) {
+          // Send broadcast BEFORE leaving
+          channel.postMessage({ 
+            type: 'HOST_ENDED_CALL', 
+            timestamp: Date.now(),
+            callId: activeCall.id 
+          });
+          console.log('Broadcast message sent');
+          
+          // Give a tiny delay to ensure message is sent
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Then end the call
+        try {
+          await activeCall.endCall();
+          console.log('Stream endCall() executed');
+        } catch (err) {
+          console.error('Stream endCall error:', err);
+        }
+      } else {
+        console.log('Regular participant leaving');
+        await activeCall.leave();
+      }
+
       
       // Disconnect the client
       if (videoClient) {
@@ -443,9 +549,7 @@ try {
                 </div>
                 
                 <div className="flex items-center gap-1 sm:gap-2 lg:gap-3">
-                  <div className="hidden xs:block">
-                    <RecordingControls />
-                  </div>
+                  <RecordingControls user={user} guestName={guestName} callId={bookingId as string} />
                   <InviteButton />
                   <button 
                     onClick={() => setShowChat(!showChat)}
@@ -482,7 +586,9 @@ try {
                     showControls ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0 pointer-events-none'
                   }`}>
                     <div className="flex justify-center">
-                      <CallControls onLeave={handleLeaveCall} />
+                      <CallControls 
+                        onLeave={handleLeaveCall}
+                      />
                     </div>
                   </div>
 
@@ -567,3 +673,4 @@ export default function MeetingRoom() {
     </Suspense>
   );
 }
+
