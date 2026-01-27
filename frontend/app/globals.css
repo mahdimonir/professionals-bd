@@ -272,6 +272,20 @@
   overflow: hidden;
 }
 
+/* Fix video cropping - show full content without cutting */
+.str-video__participant-view video {
+  object-fit: contain !important;
+  background-color: #000 !important;
+}
+
+/* Ensure screen sharing shows full content */
+.str-video__screen-share-overlay video,
+.str-video__screen-share video,
+[data-screen-share="true"] video {
+  object-fit: contain !important;
+  background-color: #000 !important;
+}
+
 /* Improve participant grid layout for mobile */
 .str-video__speaker-layout {
   width: 100% !important;
@@ -289,8 +303,9 @@
     border-radius: 0.75rem;
   }
   
+  /* Mobile should also show full content, not crop */
   .str-video__participant-view video {
-    object-fit: cover !important;
+    object-fit: contain !important;
   }
 }
 
@@ -331,4 +346,231 @@
   width: 100% !important;
   height: 100% !important;
 }
+
+/* Mic/Camera Options Dropdown Menu Styling */
+.str-video__menu,
+.str-video__device-selector,
+.str-video__menu-container {
+  background: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(30px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3) !important;
+  padding: 0.5rem !important;
+  min-width: 200px !important;
+  max-width: 90vw !important;
+}
+
+.str-video__menu-item,
+.str-video__device-selector-item {
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.5rem !important;
+  color: white !important;
+  font-size: 14px !important;
+  transition: all 0.2s !important;
+  cursor: pointer !important;
+}
+
+.str-video__menu-item:hover,
+.str-video__device-selector-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.str-video__menu-item[data-selected="true"],
+.str-video__device-selector-item[data-selected="true"] {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+}
+
+/* Toast/Notification Styling */
+.str-video__notification,
+.str-video__toast,
+.str-video__call-notification {
+  background: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(30px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 1rem !important;
+  padding: 1rem 1.25rem !important;
+  color: white !important;
+  font-size: 14px !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+  max-width: 90vw !important;
+  min-width: 250px !important;
+}
+
+@media (max-width: 640px) {
+  .str-video__notification,
+  .str-video__toast,
+  .str-video__call-notification {
+    font-size: 13px !important;
+    padding: 0.875rem 1rem !important;
+    min-width: 200px !important;
+  }
+}
+
+/* Toast positioning */
+.str-video__notification-container {
+  z-index: 100 !important;
+  padding: 1rem !important;
+}
+
+/* Ensure all buttons are visible including emoji */
+.str-video__call-controls button,
+.str-video__call-controls [role="button"] {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Emoji/Reaction button styling */
+.str-video__reaction-button,
+.str-video__call-controls button[title*="React"],
+.str-video__call-controls button[title*="Emoji"],
+.str-video__call-controls button[aria-label*="React"],
+.str-video__call-controls button[aria-label*="Emoji"] {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Reaction picker/emoji picker */
+.str-video__reaction-picker,
+.str-video__emoji-picker {
+  background: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(30px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 1rem !important;
+  padding: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Dropup/Dropdown arrow styling */
+.str-video__menu::before,
+.str-video__device-selector::before {
+  display: none !important;
+}
+
+/* Ensure menus appear above other elements */
+.str-video__portal,
+.str-video__menu-portal {
+  z-index: 200 !important;
+}
+
+/* Screen share approval notification */
+.str-video__screen-share-notification,
+.str-video__permission-notification {
+  background: rgba(15, 23, 42, 0.98) !important;
+  border: 1px solid rgba(59, 130, 246, 0.3) !important;
+  border-radius: 1rem !important;
+  padding: 1rem 1.25rem !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Fix tooltip z-index - should be BELOW menus */
+.str-video__tooltip,
+.str-video__call-controls-tooltip,
+[role="tooltip"] {
+  z-index: 50 !important; /* Below menus (200) */
+  position: absolute !important;
+  top: auto !important;
+  bottom: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(8px) !important;
+  margin-top: 100% !important; /* Position below the button */
+}
+
+/* When menu is open, hide tooltips to prevent overlap */
+.str-video__menu-container:not([hidden]) ~ * .str-video__tooltip,
+.str-video__device-selector:not([hidden]) ~ * .str-video__tooltip {
+  display: none !important;
+}
+
+/* Ensure tooltips don't interfere with buttons */
+.str-video__call-controls button {
+  position: relative !important;
+}
+
+.str-video__call-controls button .str-video__tooltip {
+  pointer-events: none !important;
+}
+
+/* Hide tooltips on button hover when menu is about to open */
+.str-video__call-controls button:hover .str-video__tooltip {
+  transition-delay: 0.5s !important; /* Delay tooltip to avoid overlap */
+}
+
+/* Tooltip styling for better visibility */
+.str-video__tooltip {
+  background: rgba(15, 23, 42, 0.95) !important;
+  color: white !important;
+  font-size: 12px !important;
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  white-space: nowrap !important;
+}
+
+/* Emoji/Reaction picker - Make responsive for mobile */
+.str-video__reaction-picker,
+.str-video__emoji-picker {
+  max-width: calc(100vw - 2rem) !important;
+  max-height: calc(100vh - 200px) !important;
+  overflow-y: auto !important;
+}
+
+/* Mobile: Force centered fixed positioning */
+@media (max-width: 639px) {
+  .str-video__reaction-picker,
+  .str-video__emoji-picker {
+    position: fixed !important;
+    left: 50% !important;
+    bottom: 100px !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 2rem) !important;
+    max-width: 400px !important;
+  }
+}
+
+/* Hide connection quality notification - it overlaps controls */
+.str-video__connection-quality-indicator,
+.str-video__connection-notification,
+[class*="connection-quality"],
+[class*="poor-connection"] {
+  display: none !important;
+}
+
+/* AGGRESSIVE: Hide Stream.io's default CallControls recording button - we have custom host-only controls */
+/* Target by data attribute */
+button[data-testid="recording-button"],
+button[data-testid*="record"],
+/* Target by aria-label */
+button[aria-label^="Record"],
+button[aria-label*="record"],
+button[aria-label*="Record"],
+button[aria-label*="recording"],
+button[aria-label*="Recording"],
+/* Target inside CallControls */
+.str-video__call-controls button[aria-label*="Record"],
+.str-video__call-controls button[aria-label*="record"],
+.str-video__call-controls button[data-testid*="record"],
+/* Target by class */
+.str-video__call-controls__button--recording,
+.str-video__recording-button,
+[class*="recording-button"],
+[class*="RecordingButton"],
+[class*="record-button"],
+/* Extra specific targeting */
+.str-video__call-controls > div > button[aria-label*="Record"],
+.str-video__call-controls-container button[aria-label*="record"],
+div[class*="call-controls"] button[aria-label*="Record"],
+/* Target composite buttons */
+.str-video__composite-button[data-testid*="record"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
 

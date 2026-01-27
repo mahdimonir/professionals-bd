@@ -19,7 +19,7 @@ export class MeetingService {
     }
 
     const callType = "default";
-    const callId = `booking-${bookingId}`; // Prefix to distinguish from ad-hoc
+    const callId = `booking-${bookingId}`;
 
     const call = streamClient.video.call(callType, callId);
 
@@ -32,7 +32,8 @@ export class MeetingService {
         ],
         settings_override: {
           recording: {
-            mode: "disabled",
+            mode: "available", // Backend routes enforce host-only access
+            quality: "1080p",
           },
         },
         custom: { type: "booking", bookingId },
@@ -54,7 +55,7 @@ export class MeetingService {
   // 2. Create ad-hoc meeting (ADMIN/MODERATOR only)
   static async createAdHocMeeting(creatorId: string, title?: string) {
     const callType = "default";
-    const callId = `adhoc-${creatorId}-${Date.now()}`; // Unique ID
+    const callId = `adhoc-${creatorId}-${Date.now()}`;
 
     const call = streamClient.video.call(callType, callId);
 
@@ -66,7 +67,8 @@ export class MeetingService {
         ],
         settings_override: {
           recording: {
-            mode: "disabled",
+            mode: "available", // Backend routes enforce host-only access
+            quality: "1080p",
           },
         },
         custom: { type: "adhoc", title: title || "Instant Meeting" },
@@ -78,7 +80,6 @@ export class MeetingService {
 
   // 3. Generate join token (works for both booking & ad-hoc)
   static async generateJoinToken(userId: string, callId: string) {
-    // Extract type from callId
     const isBookingCall = callId.startsWith("booking-");
     const isAdHocCall = callId.startsWith("adhoc-");
 
@@ -98,20 +99,37 @@ export class MeetingService {
         throw ApiError.forbidden("You are not a participant");
       }
     }
-    // For ad-hoc: allow any authenticated user (or add member check later)
+
+    const call = streamClient.video.call("default", callId);
+    try {
+      const callData = await call.get();
+
+      if (callData.call.ended_at) {
+        throw ApiError.badRequest("This call has ended and cannot be rejoined");
+      }
+    } catch (error: any) {
+      if (error.statusCode === 400) {
+        throw error;
+      }
+    }
 
     const token = streamClient.createToken(userId);
 
     return { token, callId, callType: "default" };
   }
 
-  // Add this method
   static async generateAdHocJoinToken(userId: string, callId: string) {
-    // Basic validation - call must exist in Stream
     const call = streamClient.video.call("default", callId);
     try {
-      await call.get(); // Check if call exists
-    } catch {
+      const callData = await call.get();
+
+      if (callData.call.ended_at) {
+        throw ApiError.badRequest("This call has ended and cannot be rejoined");
+      }
+    } catch (error: any) {
+      if (error.statusCode === 400) {
+        throw error;
+      }
       throw ApiError.notFound("Meeting not found");
     }
 
@@ -125,26 +143,27 @@ export class MeetingService {
     };
   }
 
-  // Add this method for guest access
   static async generateGuestToken(callId: string, guestName: string) {
     const call = streamClient.video.call("default", callId);
     try {
-      await call.get();
-    } catch {
+      const callData = await call.get();
+      if (callData.call.ended_at) {
+        throw ApiError.badRequest("This call has ended and cannot be joined");
+      }
+    } catch (error: any) {
+      if (error.statusCode === 400) {
+        throw error;
+      }
       throw ApiError.notFound("Meeting not found");
     }
 
-    // Create a temporary user ID for the guest
     const guestId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Upsert guest user first
     await streamClient.upsertUsers([{
       id: guestId,
       name: guestName,
-      role: "guest",
     }]);
 
-    // Create token for this guest (expiration default)
     const token = streamClient.createToken(guestId);
 
     return {
@@ -159,7 +178,6 @@ export class MeetingService {
   static async startRecording(callId: string, userId: string) {
     const call = streamClient.video.call("default", callId);
 
-    // Verify user is host
     const callInfo = await call.get();
     const member = callInfo.members.find(m => m.user_id === userId);
     if (!member || member.role !== "host") {
@@ -185,14 +203,13 @@ export class MeetingService {
     return { success: true, message: "Recording stopped" };
   }
 
-  // 5. Webhook handler
   static async handleRecordingWebhook(payload: any) {
     if (payload.type !== "call.recording_ready") return;
 
     const callCid = payload.call_cid;
     const callId = callCid.split(":").pop();
 
-    if (!callId.startsWith("booking-")) return; // Only save recording for booking calls
+    if (!callId.startsWith("booking-")) return;
 
     const bookingId = callId.replace("booking-", "");
     const recordingUrl = payload.recording?.url;
